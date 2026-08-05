@@ -8,8 +8,8 @@ import type {
 } from 'react';
 import { forwardRef } from 'react';
 
-export function Card({ children, className = '' }: { children: ReactNode; className?: string }) {
-  return <div className={`bg-white border border-gray-200 rounded-xl p-4 ${className}`}>{children}</div>;
+export function Card({ children, className = '', id }: { children: ReactNode; className?: string; id?: string }) {
+  return <div id={id} className={`bg-white border border-gray-200 rounded-xl p-4 ${className}`}>{children}</div>;
 }
 
 export function Label(props: LabelHTMLAttributes<HTMLLabelElement>) {

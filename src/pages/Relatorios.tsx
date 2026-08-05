@@ -12,24 +12,25 @@ export default function Relatorios() {
   const { mostrar } = useToast();
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [valorEdit, setValorEdit] = useState('');
+  const [valorTotalEdit, setValorTotalEdit] = useState('');
+  const [dataPrevistaEdit, setDataPrevistaEdit] = useState('');
   const [statusEdit, setStatusEdit] = useState<StatusPagamento>('Pago');
 
   const relatorio = useMemo(() => {
     let totalVendido = 0;
     let totalQuantidade = 0;
     let lucroTotal = 0;
-    const pendencias: Array<{ venda: Venda; falta: number; valorEsperado: number }> = [];
+    const pendencias: Array<{ venda: Venda; falta: number }> = [];
 
     for (const v of vendas) {
       const custo = Number(v.camisa?.preco_custo ?? 0);
-      const preco = Number(v.camisa?.preco_venda ?? 0);
       totalVendido += Number(v.valor_recebido);
       totalQuantidade += v.quantidade;
       lucroTotal += Number(v.valor_recebido) - custo * v.quantidade;
 
       if (v.status_pagamento === 'Pendente' || v.status_pagamento === 'Parcelado') {
-        const valorEsperado = preco * v.quantidade;
-        pendencias.push({ venda: v, falta: Math.max(valorEsperado - Number(v.valor_recebido), 0), valorEsperado });
+        const falta = Math.max(Number(v.valor_total) - Number(v.valor_recebido), 0);
+        pendencias.push({ venda: v, falta });
       }
     }
 
@@ -41,13 +42,27 @@ export default function Relatorios() {
   function iniciarEdicao(v: Venda) {
     setEditandoId(v.id);
     setValorEdit(String(v.valor_recebido));
+    setValorTotalEdit(String(v.valor_total));
+    setDataPrevistaEdit(v.data_prevista_pagamento ?? '');
     setStatusEdit(v.status_pagamento);
+  }
+
+  function editarDaPendencia(v: Venda) {
+    iniciarEdicao(v);
+    setTimeout(() => {
+      document.getElementById(`venda-linha-${v.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 50);
   }
 
   async function salvarEdicao(id: string) {
     const { error } = await supabase
       .from('vendas')
-      .update({ valor_recebido: Number(valorEdit), status_pagamento: statusEdit })
+      .update({
+        valor_recebido: Number(valorEdit),
+        valor_total: Number(valorTotalEdit),
+        data_prevista_pagamento: dataPrevistaEdit || null,
+        status_pagamento: statusEdit,
+      })
       .eq('id', id);
     if (error) {
       mostrar(error.message, 'erro');
@@ -69,10 +84,10 @@ export default function Relatorios() {
     recarregar();
   }
 
-  async function marcarComoPago(v: Venda, valorEsperado: number) {
+  async function marcarComoPago(v: Venda) {
     const { error } = await supabase
       .from('vendas')
-      .update({ valor_recebido: valorEsperado, status_pagamento: 'Pago' })
+      .update({ valor_recebido: v.valor_total, status_pagamento: 'Pago' })
       .eq('id', v.id);
     if (error) {
       mostrar(error.message, 'erro');
@@ -104,7 +119,7 @@ export default function Relatorios() {
         <EmptyState>Nenhuma pendência de pagamento.</EmptyState>
       ) : (
         <div className="flex flex-col gap-2.5 mb-5">
-          {relatorio.pendencias.map(({ venda: v, falta, valorEsperado }) => (
+          {relatorio.pendencias.map(({ venda: v, falta }) => (
             <Card key={v.id}>
               <div className="font-bold flex items-center gap-2">
                 {v.cliente}{' '}
@@ -116,9 +131,21 @@ export default function Relatorios() {
               <div className="text-xs text-gray-500 mt-0.5">
                 Falta receber: <strong>{formatBRL(falta)}</strong>
               </div>
+              <div className="text-xs text-gray-500 mt-0.5">
+                {v.data_prevista_pagamento ? (
+                  <>
+                    Combinado pagar em: <strong>{formatDateBR(v.data_prevista_pagamento)}</strong>
+                  </>
+                ) : (
+                  'Sem data combinada pra pagar o restante'
+                )}
+              </div>
               <div className="flex gap-2 mt-2.5">
-                <Button className="flex-1 !py-1.5 !text-xs" onClick={() => marcarComoPago(v, valorEsperado)}>
+                <Button className="flex-1 !py-1.5 !text-xs" onClick={() => marcarComoPago(v)}>
                   Já pagou
+                </Button>
+                <Button variant="secondary" className="flex-1 !py-1.5 !text-xs" onClick={() => editarDaPendencia(v)}>
+                  Editar
                 </Button>
                 <Button variant="danger" className="flex-1 !py-1.5 !text-xs" onClick={() => excluirVenda(v.id)}>
                   Não pagou
@@ -136,20 +163,12 @@ export default function Relatorios() {
         <div className="flex flex-col gap-2.5">
           {vendas.map((v) =>
             editandoId === v.id ? (
-              <Card key={v.id}>
+              <Card key={v.id} id={`venda-linha-${v.id}`}>
                 <div className="font-bold">{v.cliente}</div>
                 <div className="text-xs text-gray-500 mt-0.5">
                   {v.camisa?.modelo} - {v.camisa?.tamanho} ({v.quantidade}x) · {formatDateBR(v.data)}
                 </div>
-                <Label htmlFor={`valor-${v.id}`}>Valor recebido (R$)</Label>
-                <Input
-                  id={`valor-${v.id}`}
-                  type="number"
-                  min={0}
-                  step={0.01}
-                  value={valorEdit}
-                  onChange={(e) => setValorEdit(e.target.value)}
-                />
+
                 <Label htmlFor={`status-${v.id}`}>Status do pagamento</Label>
                 <Select
                   id={`status-${v.id}`}
@@ -162,6 +181,39 @@ export default function Relatorios() {
                     </option>
                   ))}
                 </Select>
+
+                <Label htmlFor={`valor-${v.id}`}>Valor recebido (R$)</Label>
+                <Input
+                  id={`valor-${v.id}`}
+                  type="number"
+                  min={0}
+                  step={0.01}
+                  value={valorEdit}
+                  onChange={(e) => setValorEdit(e.target.value)}
+                />
+
+                {statusEdit !== 'Pago' && (
+                  <>
+                    <Label htmlFor={`valor-total-${v.id}`}>Valor total combinado (R$)</Label>
+                    <Input
+                      id={`valor-total-${v.id}`}
+                      type="number"
+                      min={0}
+                      step={0.01}
+                      value={valorTotalEdit}
+                      onChange={(e) => setValorTotalEdit(e.target.value)}
+                    />
+
+                    <Label htmlFor={`data-prevista-${v.id}`}>Data prevista de pagamento</Label>
+                    <Input
+                      id={`data-prevista-${v.id}`}
+                      type="date"
+                      value={dataPrevistaEdit}
+                      onChange={(e) => setDataPrevistaEdit(e.target.value)}
+                    />
+                  </>
+                )}
+
                 <div className="flex gap-2 mt-3">
                   <Button className="flex-1 !py-1.5 !text-xs" onClick={() => salvarEdicao(v.id)}>
                     Salvar
@@ -178,6 +230,7 @@ export default function Relatorios() {
             ) : (
               <div
                 key={v.id}
+                id={`venda-linha-${v.id}`}
                 className="flex justify-between items-center bg-white border border-gray-200 rounded-xl p-3 gap-2"
               >
                 <div className="min-w-0">

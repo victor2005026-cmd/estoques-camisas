@@ -2,7 +2,9 @@
 -- mais as 2 vendas que já tinham sido feitas (Real Madrid e Itália Azul).
 --
 -- Rode este script UMA VEZ no SQL Editor do Supabase, depois de já ter
--- rodado o supabase/migrations/0001_init.sql.
+-- rodado todas as migrations em supabase/migrations/ (0001, 0002, 0003...).
+-- Se você já rodou esse seed antes (numa versão anterior deste arquivo),
+-- não precisa rodar de novo — é só pra quem ainda não tinha rodado.
 --
 -- Tamanho: todas entraram como "G" provisoriamente (não tínhamos controle
 -- por tamanho ainda) — ajuste item a item depois pela tela de Cadastro.
@@ -39,18 +41,18 @@ insert into camisas (modelo, tamanho, estoque, preco_venda, preco_custo) values
 -- Data usada: hoje, já que a data exata dessas vendas não foi anotada —
 -- ajuste depois na aba Relatórios se lembrar o dia certo.
 
-insert into vendas (data, cliente, camisa_id, quantidade, valor_recebido, forma_pagamento, status_pagamento)
+insert into vendas (data, cliente, camisa_id, quantidade, valor_recebido, valor_total, forma_pagamento, status_pagamento)
 values (
   current_date,
   'Professor Gargamel',
   (select id from camisas where modelo = 'REAL MADRID' and tamanho = 'G'),
-  1, 120, 'Pix', 'Pago'
+  1, 120, 120, 'Pix', 'Pago'
 );
 
-insert into vendas (data, cliente, camisa_id, quantidade, valor_recebido, forma_pagamento, status_pagamento)
+insert into vendas (data, cliente, camisa_id, quantidade, valor_recebido, valor_total, forma_pagamento, status_pagamento)
 values (
   current_date,
   'Titio Alexandre',
   (select id from camisas where modelo = 'ITÁLIA AZUL' and tamanho = 'G'),
-  1, 120, 'Pix', 'Pago'
+  1, 120, 120, 'Pix', 'Pago'
 );

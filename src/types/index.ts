@@ -20,6 +20,8 @@ export interface Venda {
   camisa_id: string;
   quantidade: number;
   valor_recebido: number;
+  valor_total: number;
+  data_prevista_pagamento: string | null;
   forma_pagamento: FormaPagamento;
   status_pagamento: StatusPagamento;
   observacoes: string | null;

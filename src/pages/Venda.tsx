@@ -18,6 +18,9 @@ export default function Venda() {
   const [quantidade, setQuantidade] = useState('1');
   const [valor, setValor] = useState('');
   const [valorEditado, setValorEditado] = useState(false);
+  const [valorTotal, setValorTotal] = useState('');
+  const [valorTotalEditado, setValorTotalEditado] = useState(false);
+  const [dataPrevista, setDataPrevista] = useState('');
   const [data, setData] = useState(todayISO());
   const [forma, setForma] = useState<FormaPagamento>('Pix');
   const [status, setStatus] = useState<StatusPagamento>('Pago');
@@ -29,12 +32,37 @@ export default function Venda() {
   }, [camisas, camisaId]);
 
   const camisaSelecionada = camisas.find((c) => c.id === camisaId);
+  const naoPago = status !== 'Pago';
 
+  // Sugere o valor recebido: preço cheio quando é venda paga na hora, ou 0 quando fica pendente/parcelada.
   useEffect(() => {
-    if (!valorEditado && camisaSelecionada) {
+    if (valorEditado || !camisaSelecionada) return;
+    if (status === 'Pago') {
       setValor((Number(camisaSelecionada.preco_venda) * Number(quantidade || 0)).toFixed(2));
+    } else {
+      setValor('0');
     }
-  }, [camisaSelecionada, quantidade, valorEditado]);
+  }, [camisaSelecionada, quantidade, valorEditado, status]);
+
+  // Sugere o valor total combinado da venda (usado só quando não é Pago).
+  useEffect(() => {
+    if (!valorTotalEditado && camisaSelecionada) {
+      setValorTotal((Number(camisaSelecionada.preco_venda) * Number(quantidade || 0)).toFixed(2));
+    }
+  }, [camisaSelecionada, quantidade, valorTotalEditado]);
+
+  function resetForm() {
+    setCliente('');
+    setQuantidade('1');
+    setValor('');
+    setValorEditado(false);
+    setValorTotal('');
+    setValorTotalEditado(false);
+    setDataPrevista('');
+    setData(todayISO());
+    setStatus('Pago');
+    setObs('');
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -43,11 +71,14 @@ export default function Venda() {
       return;
     }
     setSalvando(true);
+    const valorRecebidoNum = Number(valor);
     const { error } = await supabase.from('vendas').insert({
       cliente: cliente.trim(),
       camisa_id: camisaId,
       quantidade: Number(quantidade),
-      valor_recebido: Number(valor),
+      valor_recebido: valorRecebidoNum,
+      valor_total: naoPago ? Number(valorTotal) : valorRecebidoNum,
+      data_prevista_pagamento: naoPago && dataPrevista ? dataPrevista : null,
       data,
       forma_pagamento: forma,
       status_pagamento: status,
@@ -61,12 +92,7 @@ export default function Venda() {
     }
 
     mostrar('Venda registrada com sucesso!', 'sucesso');
-    setCliente('');
-    setQuantidade('1');
-    setValor('');
-    setValorEditado(false);
-    setData(todayISO());
-    setObs('');
+    resetForm();
     recarregar();
   }
 
@@ -148,6 +174,36 @@ export default function Venda() {
             </option>
           ))}
         </Select>
+
+        {naoPago && (
+          <>
+            <Label htmlFor="valor-total">Valor total combinado (R$)</Label>
+            <Input
+              id="valor-total"
+              type="number"
+              min={0}
+              step={0.01}
+              required
+              value={valorTotal}
+              onChange={(e) => {
+                setValorTotal(e.target.value);
+                setValorTotalEditado(true);
+              }}
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              O valor combinado no total, mesmo que ainda não tenha recebido tudo. É com base nele que o sistema
+              calcula quanto falta.
+            </p>
+
+            <Label htmlFor="data-prevista">Data prevista de pagamento (opcional)</Label>
+            <Input
+              id="data-prevista"
+              type="date"
+              value={dataPrevista}
+              onChange={(e) => setDataPrevista(e.target.value)}
+            />
+          </>
+        )}
 
         <Label htmlFor="obs">Observações (opcional)</Label>
         <TextArea

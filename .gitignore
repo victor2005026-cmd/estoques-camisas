@@ -1,0 +1,14 @@
+node_modules/
+dist/
+dist-ssr/
+.DS_Store
+*.log
+.env
+.env.local
+*.local
+*.tsbuildinfo
+vite.config.js
+vite.config.d.ts
+
+# Projeto antigo em Apps Script, mantido só como referência local
+_legacy-apps-script-backup/

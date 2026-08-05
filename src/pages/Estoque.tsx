@@ -1,6 +1,17 @@
 import { useState } from 'react';
 import { useCamisas } from '../hooks/useCamisas';
 import { Badge, Card, EmptyState, Input, Spinner } from '../components/ui';
+import type { Camisa } from '../types';
+
+function statusEstoque(estoque: number) {
+  if (estoque <= 0) {
+    return { tone: 'danger' as const, rotulo: 'Esgotado', cardClass: 'bg-red-50 border-red-300' };
+  }
+  if (estoque === 1) {
+    return { tone: 'warning' as const, rotulo: 'Última unidade', cardClass: 'bg-amber-50 border-amber-300' };
+  }
+  return { tone: 'success' as const, rotulo: 'Em estoque', cardClass: 'bg-white border-gray-200' };
+}
 
 export default function Estoque() {
   const { camisas, loading } = useCamisas();
@@ -23,15 +34,10 @@ export default function Estoque() {
         ) : itens.length === 0 ? (
           <EmptyState>Nenhuma camisa encontrada.</EmptyState>
         ) : (
-          itens.map((c) => {
-            const baixo = c.estoque <= c.estoque_minimo;
+          itens.map((c: Camisa) => {
+            const status = statusEstoque(c.estoque);
             return (
-              <div
-                key={c.id}
-                className={`flex items-center gap-2.5 border rounded-xl p-3 ${
-                  baixo ? 'bg-red-50 border-red-300' : 'bg-white border-gray-200'
-                }`}
-              >
+              <div key={c.id} className={`flex items-center gap-2.5 border rounded-xl p-3 ${status.cardClass}`}>
                 {c.foto_url && (
                   <img
                     src={c.foto_url}
@@ -46,11 +52,9 @@ export default function Estoque() {
                   <div className="font-bold">
                     {c.modelo} - {c.tamanho}
                   </div>
-                  <div className="text-xs text-gray-500 mt-0.5">
-                    {c.estoque} un. em estoque · mínimo: {c.estoque_minimo}
-                  </div>
+                  <div className="text-xs text-gray-500 mt-0.5">{c.estoque} un. em estoque</div>
                 </div>
-                <Badge tone={baixo ? 'danger' : 'success'}>{baixo ? 'Estoque baixo' : 'OK'}</Badge>
+                <Badge tone={status.tone}>{status.rotulo}</Badge>
               </div>
             );
           })

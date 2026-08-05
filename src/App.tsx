@@ -26,7 +26,10 @@ export default function App() {
     <div className="min-h-screen bg-gray-100">
       <header className="sticky top-0 z-10 bg-brand-500 text-white">
         <div className="max-w-lg mx-auto flex items-center justify-between px-4 py-3">
-          <h1 className="font-bold">Vendas de Camisas</h1>
+          <div className="flex items-center gap-2.5">
+            <img src="/logo-header.png" alt="LV Sports" className="w-9 h-9 rounded-lg" />
+            <h1 className="font-bold">Vendas de Camisas</h1>
+          </div>
           <button type="button" onClick={signOut} className="text-xs text-white/80 underline">
             Sair
           </button>

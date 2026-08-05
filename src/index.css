@@ -12,3 +12,12 @@ body {
   background-color: #f3f4f6;
   -webkit-tap-highlight-color: transparent;
 }
+
+/* O ícone/indicador de calendário dos campos de data renderiza grande demais
+   em alguns navegadores mobile (Android/Chrome) — limita o tamanho dele. */
+input[type='date']::-webkit-calendar-picker-indicator {
+  width: 18px;
+  height: 18px;
+  padding: 2px;
+  margin-left: 4px;
+}

@@ -22,6 +22,7 @@ export default function Login() {
   return (
     <div className="min-h-screen bg-gray-100 flex items-center justify-center px-4">
       <Card className="w-full max-w-sm">
+        <img src="/logo-header.png" alt="LV Sports" className="w-16 h-16 rounded-xl mx-auto mb-3" />
         <h1 className="text-lg font-bold text-center mb-1">Vendas de Camisas</h1>
         <p className="text-sm text-gray-500 text-center mb-4">Entre com sua conta pra continuar</p>
         <form onSubmit={handleSubmit}>

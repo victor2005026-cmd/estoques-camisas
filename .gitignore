@@ -12,3 +12,5 @@ vite.config.d.ts
 
 # Projeto antigo em Apps Script, mantido só como referência local
 _legacy-apps-script-backup/
+.vercel
+.env*

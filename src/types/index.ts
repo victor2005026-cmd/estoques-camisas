@@ -9,7 +9,6 @@ export interface Camisa {
   estoque: number;
   preco_venda: number;
   preco_custo: number;
-  estoque_minimo: number;
   foto_url: string | null;
   created_at: string;
 }

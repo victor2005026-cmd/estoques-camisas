@@ -18,10 +18,6 @@ export default function Relatorios() {
     let totalVendido = 0;
     let totalQuantidade = 0;
     let lucroTotal = 0;
-    const porClienteMap = new Map<
-      string,
-      { cliente: string; totalPago: number; quantidadeItens: number; numeroVendas: number }
-    >();
     const pendencias: Array<{ venda: Venda; falta: number; valorEsperado: number }> = [];
 
     for (const v of vendas) {
@@ -31,27 +27,15 @@ export default function Relatorios() {
       totalQuantidade += v.quantidade;
       lucroTotal += Number(v.valor_recebido) - custo * v.quantidade;
 
-      const atual = porClienteMap.get(v.cliente) ?? {
-        cliente: v.cliente,
-        totalPago: 0,
-        quantidadeItens: 0,
-        numeroVendas: 0,
-      };
-      atual.totalPago += Number(v.valor_recebido);
-      atual.quantidadeItens += v.quantidade;
-      atual.numeroVendas += 1;
-      porClienteMap.set(v.cliente, atual);
-
       if (v.status_pagamento === 'Pendente' || v.status_pagamento === 'Parcelado') {
         const valorEsperado = preco * v.quantidade;
         pendencias.push({ venda: v, falta: Math.max(valorEsperado - Number(v.valor_recebido), 0), valorEsperado });
       }
     }
 
-    const porCliente = [...porClienteMap.values()].sort((a, b) => b.totalPago - a.totalPago);
     pendencias.sort((a, b) => a.venda.data.localeCompare(b.venda.data));
 
-    return { totalVendido, totalQuantidade, lucroTotal, porCliente, pendencias, numeroVendas: vendas.length };
+    return { totalVendido, totalQuantidade, lucroTotal, pendencias, numeroVendas: vendas.length };
   }, [vendas]);
 
   function iniciarEdicao(v: Venda) {
@@ -115,28 +99,6 @@ export default function Relatorios() {
         <Stat label="Vendas registradas" value={String(relatorio.numeroVendas)} />
       </div>
 
-      <h3 className="text-sm font-semibold text-gray-500 mb-2">Vendas por cliente</h3>
-      {relatorio.porCliente.length === 0 ? (
-        <EmptyState>Nenhuma venda registrada ainda.</EmptyState>
-      ) : (
-        <div className="flex flex-col gap-2.5 mb-5">
-          {relatorio.porCliente.map((c) => (
-            <div
-              key={c.cliente}
-              className="flex justify-between items-center bg-white border border-gray-200 rounded-xl p-3"
-            >
-              <div>
-                <div className="font-bold">{c.cliente}</div>
-                <div className="text-xs text-gray-500 mt-0.5">
-                  {c.numeroVendas} venda(s) · {c.quantidadeItens} camisa(s)
-                </div>
-              </div>
-              <div className="font-bold">{formatBRL(c.totalPago)}</div>
-            </div>
-          ))}
-        </div>
-      )}
-
       <h3 className="text-sm font-semibold text-gray-500 mb-2">Pagamentos pendentes / parcelados</h3>
       {relatorio.pendencias.length === 0 ? (
         <EmptyState>Nenhuma pendência de pagamento.</EmptyState>
@@ -167,12 +129,12 @@ export default function Relatorios() {
         </div>
       )}
 
-      <h3 className="text-sm font-semibold text-gray-500 mb-2">Vendas recentes</h3>
+      <h3 className="text-sm font-semibold text-gray-500 mb-2">Histórico de vendas</h3>
       {vendas.length === 0 ? (
         <EmptyState>Nenhuma venda registrada ainda.</EmptyState>
       ) : (
         <div className="flex flex-col gap-2.5">
-          {vendas.slice(0, 30).map((v) =>
+          {vendas.map((v) =>
             editandoId === v.id ? (
               <Card key={v.id}>
                 <div className="font-bold">{v.cliente}</div>

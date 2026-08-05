@@ -14,7 +14,6 @@ const FORM_VAZIO = {
   modelo: '',
   tamanho: 'P' as Tamanho,
   estoque: '0',
-  estoque_minimo: '2',
   preco_venda: '',
   preco_custo: '',
   foto_url: '',
@@ -38,7 +37,6 @@ export default function Cadastro() {
       modelo: c.modelo,
       tamanho: c.tamanho,
       estoque: String(c.estoque),
-      estoque_minimo: String(c.estoque_minimo),
       preco_venda: String(c.preco_venda),
       preco_custo: String(c.preco_custo),
       foto_url: c.foto_url ?? '',
@@ -96,7 +94,6 @@ export default function Cadastro() {
       modelo: form.modelo.trim(),
       tamanho: form.tamanho,
       estoque: Number(form.estoque),
-      estoque_minimo: Number(form.estoque_minimo),
       preco_venda: Number(form.preco_venda),
       preco_custo: Number(form.preco_custo),
       foto_url: form.foto_url || null,
@@ -170,32 +167,16 @@ export default function Cadastro() {
             ))}
           </Select>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label htmlFor="estoque">Estoque</Label>
-              <Input
-                id="estoque"
-                type="number"
-                min={0}
-                step={1}
-                required
-                value={form.estoque}
-                onChange={(e) => setForm((f) => ({ ...f, estoque: e.target.value }))}
-              />
-            </div>
-            <div>
-              <Label htmlFor="estoque_minimo">Estoque mínimo</Label>
-              <Input
-                id="estoque_minimo"
-                type="number"
-                min={0}
-                step={1}
-                required
-                value={form.estoque_minimo}
-                onChange={(e) => setForm((f) => ({ ...f, estoque_minimo: e.target.value }))}
-              />
-            </div>
-          </div>
+          <Label htmlFor="estoque">Estoque</Label>
+          <Input
+            id="estoque"
+            type="number"
+            min={0}
+            step={1}
+            required
+            value={form.estoque}
+            onChange={(e) => setForm((f) => ({ ...f, estoque: e.target.value }))}
+          />
 
           <div className="grid grid-cols-2 gap-3">
             <div>

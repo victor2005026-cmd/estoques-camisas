@@ -8,30 +8,30 @@
 -- por tamanho ainda) — ajuste item a item depois pela tela de Cadastro.
 -- Preço de venda: R$120 provisório pra todas — ajuste depois também.
 
-insert into camisas (modelo, tamanho, estoque, preco_venda, preco_custo, estoque_minimo) values
-  ('BARCELONA ROXA', 'G', 1, 120, 70, 1),
-  ('PORTUGAL', 'G', 2, 120, 50, 1),
-  ('SAO PAULO PRETA', 'G', 1, 120, 100, 1),
-  ('SANTOS CHARLIE', 'G', 2, 120, 100, 1),
-  ('CORITHIANS BRANCA PENALTY', 'G', 1, 120, 100, 1),
-  ('CORITHIANS BRANCA NOVA', 'G', 2, 120, 100, 1),
-  ('CORITHIANS PRETA', 'G', 1, 120, 100, 1),
-  ('CORITHIANS PRETA LARANJA', 'G', 1, 120, 50, 1),
-  ('PALMEIRAS VERDE', 'G', 1, 120, 50, 1),
-  ('ITÁLIA AZUL', 'G', 2, 120, 50, 1), -- 2: já vendeu 1 (venda histórica abaixo) => sobra 1
-  ('NAPOLI', 'G', 1, 120, 50, 1),
-  ('FLAMENGO BRANCA', 'G', 2, 120, 50, 1),
-  ('ESPANHA', 'G', 1, 120, 50, 1),
-  ('ARGENTINA', 'G', 1, 120, 50, 1),
-  ('SÃO PAULO BRANCA', 'G', 1, 120, 50, 1),
-  ('BAYERN', 'G', 1, 120, 50, 1),
-  ('BARCELONA PRETA TRAVIS', 'G', 2, 120, 50, 1),
-  ('REAL MADRID', 'G', 2, 120, 30, 1), -- 2: já vendeu 1 (venda histórica abaixo) => sobra 1
-  ('BARCELONA DOURADA', 'G', 1, 120, 30, 1),
-  ('SANTOS NOVA', 'G', 1, 120, 50, 1),
-  ('MILAN', 'G', 1, 120, 30, 1),
-  ('MANCHESTER CITY', 'G', 1, 120, 50, 1),
-  ('BARCELONA ATUAL', 'G', 1, 120, 50, 1);
+insert into camisas (modelo, tamanho, estoque, preco_venda, preco_custo) values
+  ('BARCELONA ROXA', 'G', 1, 120, 70),
+  ('PORTUGAL', 'G', 2, 120, 50),
+  ('SAO PAULO PRETA', 'G', 1, 120, 100),
+  ('SANTOS CHARLIE', 'G', 2, 120, 100),
+  ('CORITHIANS BRANCA PENALTY', 'G', 1, 120, 100),
+  ('CORITHIANS BRANCA NOVA', 'G', 2, 120, 100),
+  ('CORITHIANS PRETA', 'G', 1, 120, 100),
+  ('CORITHIANS PRETA LARANJA', 'G', 1, 120, 50),
+  ('PALMEIRAS VERDE', 'G', 1, 120, 50),
+  ('ITÁLIA AZUL', 'G', 2, 120, 50), -- 2: já vendeu 1 (venda histórica abaixo) => sobra 1
+  ('NAPOLI', 'G', 1, 120, 50),
+  ('FLAMENGO BRANCA', 'G', 2, 120, 50),
+  ('ESPANHA', 'G', 1, 120, 50),
+  ('ARGENTINA', 'G', 1, 120, 50),
+  ('SÃO PAULO BRANCA', 'G', 1, 120, 50),
+  ('BAYERN', 'G', 1, 120, 50),
+  ('BARCELONA PRETA TRAVIS', 'G', 2, 120, 50),
+  ('REAL MADRID', 'G', 2, 120, 30), -- 2: já vendeu 1 (venda histórica abaixo) => sobra 1
+  ('BARCELONA DOURADA', 'G', 1, 120, 30),
+  ('SANTOS NOVA', 'G', 1, 120, 50),
+  ('MILAN', 'G', 1, 120, 30),
+  ('MANCHESTER CITY', 'G', 1, 120, 50),
+  ('BARCELONA ATUAL', 'G', 1, 120, 50);
 
 -- Vendas já realizadas antes da migração. O trigger de estoque abate 1 unidade
 -- automaticamente de cada uma ao inserir — por isso Real Madrid e Itália Azul

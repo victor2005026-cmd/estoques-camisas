@@ -1,16 +1,19 @@
 import { useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useVendas } from '../hooks/useVendas';
-import { useCamisas } from '../hooks/useCamisas';
 import { useToast } from '../context/ToastContext';
 import { Badge, Button, Card, EmptyState, Input, Label, Select, Spinner, formatBRL, formatDateBR } from '../components/ui';
 import type { StatusPagamento, Venda } from '../types';
 
 const STATUS: StatusPagamento[] = ['Pago', 'Pendente', 'Parcelado'];
 
+// Total gasto comprando o estoque inicial de camisas — valor real informado,
+// já que o custo exato de cada modelo individual não é conhecido com precisão.
+// Se comprar mais estoque no futuro, atualize esse número.
+const TOTAL_INVESTIDO_INICIAL = 1820;
+
 export default function Relatorios() {
   const { vendas, loading, recarregar } = useVendas();
-  const { camisas, loading: carregandoCamisas } = useCamisas();
   const { mostrar } = useToast();
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [valorEdit, setValorEdit] = useState('');
@@ -38,12 +41,7 @@ export default function Relatorios() {
 
     pendencias.sort((a, b) => a.venda.data.localeCompare(b.venda.data));
 
-    // Total investido = custo de tudo que ainda está em estoque + custo de tudo que já foi vendido.
-    // Ou seja: quanto já foi gasto comprando as camisas, sem depender de valor de venda nenhum.
-    const custoEstoqueAtual = camisas.reduce((soma, c) => soma + Number(c.preco_custo) * c.estoque, 0);
-    const custoJaVendido = vendas.reduce((soma, v) => soma + Number(v.camisa?.preco_custo ?? 0) * v.quantidade, 0);
-    const totalInvestido = custoEstoqueAtual + custoJaVendido;
-    const margem = totalVendido - totalInvestido;
+    const margem = totalVendido - TOTAL_INVESTIDO_INICIAL;
 
     return {
       totalVendido,
@@ -51,10 +49,9 @@ export default function Relatorios() {
       lucroTotal,
       pendencias,
       numeroVendas: vendas.length,
-      totalInvestido,
       margem,
     };
-  }, [vendas, camisas]);
+  }, [vendas]);
 
   function iniciarEdicao(v: Venda) {
     setEditandoId(v.id);
@@ -114,7 +111,7 @@ export default function Relatorios() {
     recarregar();
   }
 
-  if (loading || carregandoCamisas) {
+  if (loading) {
     return (
       <div className="flex justify-center py-10">
         <Spinner />
@@ -129,7 +126,7 @@ export default function Relatorios() {
         <Stat label="Camisas vendidas" value={String(relatorio.totalQuantidade)} />
         <Stat label="Lucro total" value={formatBRL(relatorio.lucroTotal)} tone="verde" />
         <Stat label="Vendas registradas" value={String(relatorio.numeroVendas)} />
-        <Stat label="Total investido em camisas" value={formatBRL(relatorio.totalInvestido)} />
+        <Stat label="Total investido em camisas" value={formatBRL(TOTAL_INVESTIDO_INICIAL)} />
         <Stat
           label={relatorio.margem >= 0 ? 'Margem (já positivo!)' : 'Margem (ainda no negativo)'}
           value={formatBRL(relatorio.margem)}

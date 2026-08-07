@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useVendas } from '../hooks/useVendas';
+import { useGastos } from '../hooks/useGastos';
 import { useToast } from '../context/ToastContext';
 import { Badge, Button, Card, EmptyState, Input, Label, Select, Spinner, formatBRL, formatDateBR } from '../components/ui';
 import type { StatusPagamento, Venda } from '../types';
@@ -14,6 +15,7 @@ const TOTAL_INVESTIDO_INICIAL = 1820;
 
 export default function Relatorios() {
   const { vendas, loading, recarregar } = useVendas();
+  const { gastos, loading: carregandoGastos } = useGastos();
   const { mostrar } = useToast();
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [valorEdit, setValorEdit] = useState('');
@@ -24,14 +26,14 @@ export default function Relatorios() {
   const relatorio = useMemo(() => {
     let totalVendido = 0;
     let totalQuantidade = 0;
-    let lucroTotal = 0;
+    let lucroBruto = 0;
     const pendencias: Array<{ venda: Venda; falta: number }> = [];
 
     for (const v of vendas) {
       const custo = Number(v.camisa?.preco_custo ?? 0);
       totalVendido += Number(v.valor_recebido);
       totalQuantidade += v.quantidade;
-      lucroTotal += Number(v.valor_recebido) - custo * v.quantidade;
+      lucroBruto += Number(v.valor_recebido) - custo * v.quantidade;
 
       if (v.status_pagamento === 'Pendente' || v.status_pagamento === 'Parcelado') {
         const falta = Math.max(Number(v.valor_total) - Number(v.valor_recebido), 0);
@@ -41,17 +43,21 @@ export default function Relatorios() {
 
     pendencias.sort((a, b) => a.venda.data.localeCompare(b.venda.data));
 
-    const margem = totalVendido - TOTAL_INVESTIDO_INICIAL;
+    const totalGastos = gastos.reduce((soma, g) => soma + Number(g.valor), 0);
+    const lucroLiquido = lucroBruto - totalGastos;
+    const margem = totalVendido - TOTAL_INVESTIDO_INICIAL - totalGastos;
 
     return {
       totalVendido,
       totalQuantidade,
-      lucroTotal,
+      lucroBruto,
+      totalGastos,
+      lucroLiquido,
       pendencias,
       numeroVendas: vendas.length,
       margem,
     };
-  }, [vendas]);
+  }, [vendas, gastos]);
 
   function iniciarEdicao(v: Venda) {
     setEditandoId(v.id);
@@ -111,7 +117,7 @@ export default function Relatorios() {
     recarregar();
   }
 
-  if (loading) {
+  if (loading || carregandoGastos) {
     return (
       <div className="flex justify-center py-10">
         <Spinner />
@@ -124,8 +130,14 @@ export default function Relatorios() {
       <div className="grid grid-cols-2 gap-2.5 my-3">
         <Stat label="Total vendido" value={formatBRL(relatorio.totalVendido)} />
         <Stat label="Camisas vendidas" value={String(relatorio.totalQuantidade)} />
-        <Stat label="Lucro total" value={formatBRL(relatorio.lucroTotal)} tone="verde" />
+        <Stat label="Lucro bruto" value={formatBRL(relatorio.lucroBruto)} tone="verde" />
         <Stat label="Vendas registradas" value={String(relatorio.numeroVendas)} />
+        <Stat label="Total de gastos" value={formatBRL(relatorio.totalGastos)} tone="vermelho" />
+        <Stat
+          label="Lucro líquido"
+          value={formatBRL(relatorio.lucroLiquido)}
+          tone={relatorio.lucroLiquido >= 0 ? 'verde' : 'vermelho'}
+        />
         <Stat label="Total investido em camisas" value={formatBRL(TOTAL_INVESTIDO_INICIAL)} />
         <Stat
           label={relatorio.margem >= 0 ? 'Margem (já positivo!)' : 'Margem (ainda no negativo)'}

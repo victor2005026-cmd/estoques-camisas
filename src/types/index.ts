@@ -28,3 +28,11 @@ export interface Venda {
   created_at: string;
   camisa?: Camisa | null;
 }
+
+export interface Gasto {
+  id: string;
+  descricao: string;
+  valor: number;
+  data: string;
+  created_at: string;
+}

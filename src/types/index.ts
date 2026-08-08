@@ -46,3 +46,13 @@ export interface ItemCompra {
   quantidade_comprada: number | null;
   created_at: string;
 }
+
+export interface PedidoCliente {
+  id: string;
+  cliente: string;
+  modelo: string;
+  tamanho: Tamanho;
+  observacoes: string | null;
+  atendido: boolean;
+  created_at: string;
+}

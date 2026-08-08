@@ -36,3 +36,13 @@ export interface Gasto {
   data: string;
   created_at: string;
 }
+
+export interface ItemCompra {
+  id: string;
+  item: string;
+  quantidade_desejada: number | null;
+  observacoes: string | null;
+  comprado: boolean;
+  quantidade_comprada: number | null;
+  created_at: string;
+}

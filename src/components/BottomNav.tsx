@@ -1,9 +1,10 @@
-export type Aba = 'venda' | 'estoque' | 'cadastro' | 'relatorios';
+export type Aba = 'venda' | 'estoque' | 'cadastro' | 'lista' | 'relatorios';
 
 const ABAS: { id: Aba; label: string }[] = [
   { id: 'venda', label: 'Venda' },
   { id: 'estoque', label: 'Estoque' },
   { id: 'cadastro', label: 'Cadastro' },
+  { id: 'lista', label: 'Lista' },
   { id: 'relatorios', label: 'Relatórios' },
 ];
 

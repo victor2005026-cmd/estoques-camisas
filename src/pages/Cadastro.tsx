@@ -45,6 +45,7 @@ export default function Cadastro() {
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [form, setForm] = useState(FORM_VAZIO);
   const [itens, setItens] = useState<ItemCadastro[]>([itemVazio()]);
+  const [tamanhosExtras, setTamanhosExtras] = useState<ItemCadastro[]>([]);
   const [salvando, setSalvando] = useState(false);
   const [enviandoFoto, setEnviandoFoto] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -64,6 +65,7 @@ export default function Cadastro() {
       preco_custo: String(c.preco_custo),
       foto_url: c.foto_url ?? '',
     });
+    setTamanhosExtras([]);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
@@ -71,6 +73,7 @@ export default function Cadastro() {
     setEditandoId(null);
     setForm(FORM_VAZIO);
     setItens([itemVazio()]);
+    setTamanhosExtras([]);
     fotoSalvaRef.current = '';
     if (fileRef.current) fileRef.current.value = '';
   }
@@ -111,6 +114,37 @@ export default function Cadastro() {
     }
   }
 
+  /** Cria a camisa se modelo+tamanho ainda não existir, ou soma a quantidade no estoque se já existir. */
+  async function upsertCamisa(
+    modelo: string,
+    tamanho: Tamanho,
+    qtd: number,
+    precoVenda: number,
+    precoCusto: number,
+    listaAtual: Camisa[]
+  ) {
+    const existente = listaAtual.find(
+      (c) => c.modelo.trim().toLowerCase() === modelo.toLowerCase() && c.tamanho === tamanho
+    );
+
+    if (existente) {
+      const { error } = await supabase
+        .from('camisas')
+        .update({ estoque: existente.estoque + qtd })
+        .eq('id', existente.id);
+      return error;
+    }
+
+    const { error } = await supabase.from('camisas').insert({
+      modelo,
+      tamanho,
+      estoque: qtd,
+      preco_venda: precoVenda,
+      preco_custo: precoCusto,
+    });
+    return error;
+  }
+
   async function handleSubmitEdicao() {
     const payload = {
       modelo: form.modelo.trim(),
@@ -131,6 +165,22 @@ export default function Cadastro() {
       }
       return false;
     }
+
+    // Além de editar a camisa principal, também dá pra dar entrada em outros tamanhos desse mesmo modelo.
+    for (const it of tamanhosExtras) {
+      const erro = await upsertCamisa(
+        payload.modelo,
+        it.tamanho,
+        Number(it.estoque) || 0,
+        Number(it.precoVenda) || 0,
+        Number(it.precoCusto) || 0,
+        camisas
+      );
+      if (erro) {
+        mostrar(`Camisa principal salva, mas houve erro no tamanho ${it.tamanho}: ${erro.message}`, 'erro');
+        return true;
+      }
+    }
     return true;
   }
 
@@ -146,37 +196,18 @@ export default function Cadastro() {
     let sucessos = 0;
     for (const it of itens) {
       const modelo = it.modelo.trim();
-      const qtd = Number(it.estoque) || 0;
-      const precoVenda = Number(it.precoVenda) || 0;
-      const precoCusto = Number(it.precoCusto) || 0;
-
-      const existente = camisas.find(
-        (c) => c.modelo.trim().toLowerCase() === modelo.toLowerCase() && c.tamanho === it.tamanho
+      const erro = await upsertCamisa(
+        modelo,
+        it.tamanho,
+        Number(it.estoque) || 0,
+        Number(it.precoVenda) || 0,
+        Number(it.precoCusto) || 0,
+        camisas
       );
-
-      if (existente) {
-        const { error } = await supabase
-          .from('camisas')
-          .update({ estoque: existente.estoque + qtd })
-          .eq('id', existente.id);
-        if (error) {
-          const extra = sucessos > 0 ? ` (${sucessos} camisa(s) já foram registradas antes desse erro)` : '';
-          mostrar(`Erro em "${modelo} - ${it.tamanho}": ${error.message}${extra}`, 'erro');
-          return false;
-        }
-      } else {
-        const { error } = await supabase.from('camisas').insert({
-          modelo,
-          tamanho: it.tamanho,
-          estoque: qtd,
-          preco_venda: precoVenda,
-          preco_custo: precoCusto,
-        });
-        if (error) {
-          const extra = sucessos > 0 ? ` (${sucessos} camisa(s) já foram registradas antes desse erro)` : '';
-          mostrar(`Erro em "${modelo} - ${it.tamanho}": ${error.message}${extra}`, 'erro');
-          return false;
-        }
+      if (erro) {
+        const extra = sucessos > 0 ? ` (${sucessos} camisa(s) já foram registradas antes desse erro)` : '';
+        mostrar(`Erro em "${modelo} - ${it.tamanho}": ${erro.message}${extra}`, 'erro');
+        return false;
       }
       sucessos++;
     }
@@ -217,6 +248,18 @@ export default function Cadastro() {
 
   function removerItem(chave: string) {
     setItens((atual) => (atual.length > 1 ? atual.filter((it) => it.chave !== chave) : atual));
+  }
+
+  function atualizarExtra(chave: string, patch: Partial<ItemCadastro>) {
+    setTamanhosExtras((atual) => atual.map((it) => (it.chave === chave ? { ...it, ...patch } : it)));
+  }
+
+  function adicionarExtra() {
+    setTamanhosExtras((atual) => [...atual, itemVazio()]);
+  }
+
+  function removerExtra(chave: string) {
+    setTamanhosExtras((atual) => atual.filter((it) => it.chave !== chave));
   }
 
   async function excluir(c: Camisa) {
@@ -320,6 +363,91 @@ export default function Cadastro() {
               {form.foto_url && !enviandoFoto && (
                 <img src={form.foto_url} alt="Prévia" className="mt-2 max-h-40 rounded-lg border border-gray-200" />
               )}
+
+              {tamanhosExtras.length > 0 && (
+                <div className="flex flex-col gap-4 mt-4">
+                  {tamanhosExtras.map((item, idx) => (
+                    <div key={item.chave} className="border border-gray-200 rounded-lg p-3">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs font-semibold text-gray-500">
+                          Tamanho extra {idx + 1} ({form.modelo || 'sem modelo'})
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => removerExtra(item.chave)}
+                          className="text-xs text-red-600 font-semibold"
+                        >
+                          Remover
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label htmlFor={`extra-tamanho-${item.chave}`}>Tamanho</Label>
+                          <Select
+                            id={`extra-tamanho-${item.chave}`}
+                            value={item.tamanho}
+                            onChange={(e) => atualizarExtra(item.chave, { tamanho: e.target.value as Tamanho })}
+                          >
+                            {TAMANHOS.map((t) => (
+                              <option key={t} value={t}>
+                                {t}
+                              </option>
+                            ))}
+                          </Select>
+                        </div>
+                        <div>
+                          <Label htmlFor={`extra-estoque-${item.chave}`}>Estoque</Label>
+                          <Input
+                            id={`extra-estoque-${item.chave}`}
+                            type="number"
+                            min={0}
+                            step={1}
+                            required
+                            value={item.estoque}
+                            onChange={(e) => atualizarExtra(item.chave, { estoque: e.target.value })}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label htmlFor={`extra-preco-venda-${item.chave}`}>Preço de venda (R$)</Label>
+                          <Input
+                            id={`extra-preco-venda-${item.chave}`}
+                            type="number"
+                            min={0}
+                            step={0.01}
+                            required
+                            value={item.precoVenda}
+                            onChange={(e) => atualizarExtra(item.chave, { precoVenda: e.target.value })}
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor={`extra-preco-custo-${item.chave}`}>Preço de custo (R$)</Label>
+                          <Input
+                            id={`extra-preco-custo-${item.chave}`}
+                            type="number"
+                            min={0}
+                            step={0.01}
+                            required
+                            value={item.precoCusto}
+                            onChange={(e) => atualizarExtra(item.chave, { precoCusto: e.target.value })}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <Button type="button" variant="secondary" className="w-full mt-3" onClick={adicionarExtra}>
+                + Adicionar outro tamanho desse modelo
+              </Button>
+              <p className="text-xs text-gray-500 mt-1">
+                Ex: você tem 1 {form.modelo || 'camisa'} no {form.tamanho} e quer já aproveitar pra cadastrar 1 no GG
+                também.
+              </p>
             </>
           ) : (
             <>

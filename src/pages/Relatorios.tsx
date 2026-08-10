@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useVendas } from '../hooks/useVendas';
+import { useViagens } from '../hooks/useViagens';
 import { useToast } from '../context/ToastContext';
 import { Badge, Button, Card, EmptyState, Input, Label, Select, Spinner, formatBRL, formatDateBR } from '../components/ui';
 import type { StatusPagamento, Venda } from '../types';
@@ -9,12 +10,14 @@ const STATUS: StatusPagamento[] = ['Pago', 'Pendente', 'Parcelado'];
 
 export default function Relatorios() {
   const { vendas, loading, recarregar } = useVendas();
+  const { viagens } = useViagens();
   const { mostrar } = useToast();
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [valorEdit, setValorEdit] = useState('');
   const [valorTotalEdit, setValorTotalEdit] = useState('');
   const [dataPrevistaEdit, setDataPrevistaEdit] = useState('');
   const [statusEdit, setStatusEdit] = useState<StatusPagamento>('Pago');
+  const [viagemEdit, setViagemEdit] = useState('');
 
   const pendencias = useMemo(() => {
     const lista: Array<{ venda: Venda; falta: number }> = [];
@@ -34,6 +37,7 @@ export default function Relatorios() {
     setValorTotalEdit(String(v.valor_total));
     setDataPrevistaEdit(v.data_prevista_pagamento ?? '');
     setStatusEdit(v.status_pagamento);
+    setViagemEdit(v.camisa?.viagem_id ?? '');
   }
 
   function editarDaPendencia(v: Venda) {
@@ -57,6 +61,22 @@ export default function Relatorios() {
       mostrar(error.message, 'erro');
       return;
     }
+
+    // A viagem é marcada na camisa, não na venda — atualiza a camisa dessa venda.
+    const venda = vendas.find((v) => v.id === id);
+    if (venda) {
+      const { error: erroViagem } = await supabase
+        .from('camisas')
+        .update({ viagem_id: viagemEdit || null })
+        .eq('id', venda.camisa_id);
+      if (erroViagem) {
+        mostrar(`Venda salva, mas houve erro ao marcar a viagem: ${erroViagem.message}`, 'erro');
+        setEditandoId(null);
+        recarregar();
+        return;
+      }
+    }
+
     mostrar('Venda atualizada!', 'sucesso');
     setEditandoId(null);
     recarregar();
@@ -195,6 +215,19 @@ export default function Relatorios() {
                     />
                   </>
                 )}
+
+                <Label htmlFor={`viagem-${v.id}`}>Viagem (dessa camisa)</Label>
+                <Select id={`viagem-${v.id}`} value={viagemEdit} onChange={(e) => setViagemEdit(e.target.value)}>
+                  <option value="">Nenhuma / avulso</option>
+                  {viagens.map((viagem) => (
+                    <option key={viagem.id} value={viagem.id}>
+                      {viagem.descricao}
+                    </option>
+                  ))}
+                </Select>
+                <p className="text-xs text-gray-500 mt-1">
+                  Vale pra todas as vendas dessa camisa ({v.camisa?.modelo} - {v.camisa?.tamanho}), não só essa.
+                </p>
 
                 <div className="flex gap-2 mt-3">
                   <Button className="flex-1 !py-1.5 !text-xs" onClick={() => salvarEdicao(v.id)}>

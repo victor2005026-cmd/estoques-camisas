@@ -19,19 +19,39 @@ const FORM_VAZIO = {
   foto_url: '',
 };
 
-const QUANTIDADES_VAZIAS: Record<Tamanho, string> = { P: '', M: '', G: '', GG: '' };
+interface ItemCadastro {
+  chave: string;
+  modelo: string;
+  tamanho: Tamanho;
+  estoque: string;
+  precoVenda: string;
+  precoCusto: string;
+}
+
+function itemVazio(): ItemCadastro {
+  return {
+    chave: crypto.randomUUID(),
+    modelo: '',
+    tamanho: 'P',
+    estoque: '1',
+    precoVenda: '',
+    precoCusto: '',
+  };
+}
 
 export default function Cadastro() {
   const { camisas, loading, recarregar } = useCamisas();
   const { mostrar } = useToast();
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [form, setForm] = useState(FORM_VAZIO);
-  const [quantidades, setQuantidades] = useState<Record<Tamanho, string>>(QUANTIDADES_VAZIAS);
+  const [itens, setItens] = useState<ItemCadastro[]>([itemVazio()]);
   const [salvando, setSalvando] = useState(false);
   const [enviandoFoto, setEnviandoFoto] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   // Guarda a foto que está de fato salva no banco pra essa camisa (pra saber o que é seguro apagar do Storage).
   const fotoSalvaRef = useRef<string>('');
+
+  const modelosExistentes = [...new Set(camisas.map((c) => c.modelo))].sort();
 
   function editar(c: Camisa) {
     setEditandoId(c.id);
@@ -50,7 +70,7 @@ export default function Cadastro() {
   function resetForm() {
     setEditandoId(null);
     setForm(FORM_VAZIO);
-    setQuantidades(QUANTIDADES_VAZIAS);
+    setItens([itemVazio()]);
     fotoSalvaRef.current = '';
     if (fileRef.current) fileRef.current.value = '';
   }
@@ -114,25 +134,24 @@ export default function Cadastro() {
     return true;
   }
 
-  /** Cadastro novo: permite dar entrada em vários tamanhos da mesma camisa numa única vez. */
+  /** Cadastro novo: permite dar entrada em várias camisas (mesmo modelo em tamanhos diferentes, ou modelos diferentes) de uma vez. */
   async function handleSubmitNovo() {
-    const modelo = form.modelo.trim();
-    const precoVenda = Number(form.preco_venda);
-    const precoCusto = Number(form.preco_custo);
-    const fotoUrl = form.foto_url || null;
-
-    const entradas = TAMANHOS.map((t) => ({ tamanho: t, qtd: Number(quantidades[t]) || 0 })).filter(
-      (e) => e.qtd > 0
-    );
-
-    if (entradas.length === 0) {
-      mostrar('Informe a quantidade de pelo menos um tamanho.', 'erro');
-      return false;
+    for (const it of itens) {
+      if (!it.modelo.trim()) {
+        mostrar('Preencha o modelo de todas as camisas da lista.', 'erro');
+        return false;
+      }
     }
 
-    for (const { tamanho, qtd } of entradas) {
+    let sucessos = 0;
+    for (const it of itens) {
+      const modelo = it.modelo.trim();
+      const qtd = Number(it.estoque) || 0;
+      const precoVenda = Number(it.precoVenda) || 0;
+      const precoCusto = Number(it.precoCusto) || 0;
+
       const existente = camisas.find(
-        (c) => c.modelo.trim().toLowerCase() === modelo.toLowerCase() && c.tamanho === tamanho
+        (c) => c.modelo.trim().toLowerCase() === modelo.toLowerCase() && c.tamanho === it.tamanho
       );
 
       if (existente) {
@@ -141,23 +160,25 @@ export default function Cadastro() {
           .update({ estoque: existente.estoque + qtd })
           .eq('id', existente.id);
         if (error) {
-          mostrar(`Erro no tamanho ${tamanho}: ${error.message}`, 'erro');
+          const extra = sucessos > 0 ? ` (${sucessos} camisa(s) já foram registradas antes desse erro)` : '';
+          mostrar(`Erro em "${modelo} - ${it.tamanho}": ${error.message}${extra}`, 'erro');
           return false;
         }
       } else {
         const { error } = await supabase.from('camisas').insert({
           modelo,
-          tamanho,
+          tamanho: it.tamanho,
           estoque: qtd,
           preco_venda: precoVenda,
           preco_custo: precoCusto,
-          foto_url: fotoUrl,
         });
         if (error) {
-          mostrar(`Erro no tamanho ${tamanho}: ${error.message}`, 'erro');
+          const extra = sucessos > 0 ? ` (${sucessos} camisa(s) já foram registradas antes desse erro)` : '';
+          mostrar(`Erro em "${modelo} - ${it.tamanho}": ${error.message}${extra}`, 'erro');
           return false;
         }
       }
+      sucessos++;
     }
     return true;
   }
@@ -168,16 +189,34 @@ export default function Cadastro() {
     const sucesso = editandoId ? await handleSubmitEdicao() : await handleSubmitNovo();
     setSalvando(false);
 
-    if (!sucesso) return;
+    if (!sucesso) {
+      recarregar();
+      return;
+    }
 
     // Salvou com sucesso: agora sim pode apagar a foto antiga, se ela foi substituída (só se aplica na edição).
     if (editandoId && fotoSalvaRef.current && fotoSalvaRef.current !== form.foto_url) {
       removerFotoAntiga(fotoSalvaRef.current);
     }
 
-    mostrar('Camisa salva com sucesso!', 'sucesso');
+    mostrar(
+      !editandoId && itens.length > 1 ? `${itens.length} camisas salvas com sucesso!` : 'Camisa salva com sucesso!',
+      'sucesso'
+    );
     resetForm();
     recarregar();
+  }
+
+  function atualizarItem(chave: string, patch: Partial<ItemCadastro>) {
+    setItens((atual) => atual.map((it) => (it.chave === chave ? { ...it, ...patch } : it)));
+  }
+
+  function adicionarItem() {
+    setItens((atual) => [...atual, itemVazio()]);
+  }
+
+  function removerItem(chave: string) {
+    setItens((atual) => (atual.length > 1 ? atual.filter((it) => it.chave !== chave) : atual));
   }
 
   async function excluir(c: Camisa) {
@@ -201,17 +240,17 @@ export default function Cadastro() {
       <Card>
         <h2 className="font-bold mb-3">{editandoId ? 'Editando camisa' : 'Nova camisa'}</h2>
         <form onSubmit={handleSubmit}>
-          <Label htmlFor="modelo">Modelo</Label>
-          <Input
-            id="modelo"
-            required
-            value={form.modelo}
-            onChange={(e) => setForm((f) => ({ ...f, modelo: e.target.value }))}
-            placeholder="Ex: Camisa Retrô Azul"
-          />
-
           {editandoId ? (
             <>
+              <Label htmlFor="modelo">Modelo</Label>
+              <Input
+                id="modelo"
+                required
+                value={form.modelo}
+                onChange={(e) => setForm((f) => ({ ...f, modelo: e.target.value }))}
+                placeholder="Ex: Camisa Retrô Azul"
+              />
+
               <Label htmlFor="tamanho">Tamanho</Label>
               <Select
                 id="tamanho"
@@ -235,83 +274,164 @@ export default function Cadastro() {
                 value={form.estoque}
                 onChange={(e) => setForm((f) => ({ ...f, estoque: e.target.value }))}
               />
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label htmlFor="preco_venda">Preço de venda (R$)</Label>
+                  <Input
+                    id="preco_venda"
+                    type="number"
+                    min={0}
+                    step={0.01}
+                    required
+                    value={form.preco_venda}
+                    onChange={(e) => setForm((f) => ({ ...f, preco_venda: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="preco_custo">Preço de custo (R$)</Label>
+                  <Input
+                    id="preco_custo"
+                    type="number"
+                    min={0}
+                    step={0.01}
+                    required
+                    value={form.preco_custo}
+                    onChange={(e) => setForm((f) => ({ ...f, preco_custo: e.target.value }))}
+                  />
+                </div>
+              </div>
+
+              <Label htmlFor="foto">Foto (opcional)</Label>
+              <input
+                id="foto"
+                type="file"
+                accept="image/*"
+                ref={fileRef}
+                onChange={handleFoto}
+                disabled={enviandoFoto}
+                className="block w-full text-sm text-gray-600 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-brand-50 file:text-brand-600 file:font-semibold"
+              />
+              {enviandoFoto && (
+                <p className="text-sm text-gray-500 mt-2 flex items-center gap-2">
+                  <Spinner className="h-4 w-4 border-2" /> Enviando foto...
+                </p>
+              )}
+              {form.foto_url && !enviandoFoto && (
+                <img src={form.foto_url} alt="Prévia" className="mt-2 max-h-40 rounded-lg border border-gray-200" />
+              )}
             </>
           ) : (
             <>
-              <Label>Quantidade por tamanho</Label>
-              <p className="text-xs text-gray-500 mb-1">
-                Preencha só os tamanhos que comprou. Ex: 1 no G e 1 no GG registra os dois de uma vez.
-              </p>
-              <div className="grid grid-cols-4 gap-2">
-                {TAMANHOS.map((t) => (
-                  <div key={t}>
-                    <Label htmlFor={`qtd-${t}`} className="text-center">
-                      {t}
-                    </Label>
+              <div className="flex flex-col gap-4">
+                {itens.map((item, idx) => (
+                  <div key={item.chave} className="border border-gray-200 rounded-lg p-3">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-semibold text-gray-500">Camisa {idx + 1}</span>
+                      {itens.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removerItem(item.chave)}
+                          className="text-xs text-red-600 font-semibold"
+                        >
+                          Remover
+                        </button>
+                      )}
+                    </div>
+
+                    <Label htmlFor={`modelo-${item.chave}`}>Modelo</Label>
                     <Input
-                      id={`qtd-${t}`}
-                      type="number"
-                      min={0}
-                      step={1}
-                      value={quantidades[t]}
-                      onChange={(e) => setQuantidades((q) => ({ ...q, [t]: e.target.value }))}
-                      className="text-center"
+                      id={`modelo-${item.chave}`}
+                      list={`modelos-sugestoes-${item.chave}`}
+                      required
+                      value={item.modelo}
+                      onChange={(e) => atualizarItem(item.chave, { modelo: e.target.value })}
+                      placeholder="Ex: Corinthians Preta"
                     />
+                    <datalist id={`modelos-sugestoes-${item.chave}`}>
+                      {modelosExistentes.map((m) => (
+                        <option key={m} value={m} />
+                      ))}
+                    </datalist>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label htmlFor={`tamanho-${item.chave}`}>Tamanho</Label>
+                        <Select
+                          id={`tamanho-${item.chave}`}
+                          value={item.tamanho}
+                          onChange={(e) => atualizarItem(item.chave, { tamanho: e.target.value as Tamanho })}
+                        >
+                          {TAMANHOS.map((t) => (
+                            <option key={t} value={t}>
+                              {t}
+                            </option>
+                          ))}
+                        </Select>
+                      </div>
+                      <div>
+                        <Label htmlFor={`estoque-${item.chave}`}>Estoque</Label>
+                        <Input
+                          id={`estoque-${item.chave}`}
+                          type="number"
+                          min={0}
+                          step={1}
+                          required
+                          value={item.estoque}
+                          onChange={(e) => atualizarItem(item.chave, { estoque: e.target.value })}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label htmlFor={`preco-venda-${item.chave}`}>Preço de venda (R$)</Label>
+                        <Input
+                          id={`preco-venda-${item.chave}`}
+                          type="number"
+                          min={0}
+                          step={0.01}
+                          required
+                          value={item.precoVenda}
+                          onChange={(e) => atualizarItem(item.chave, { precoVenda: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor={`preco-custo-${item.chave}`}>Preço de custo (R$)</Label>
+                        <Input
+                          id={`preco-custo-${item.chave}`}
+                          type="number"
+                          min={0}
+                          step={0.01}
+                          required
+                          value={item.precoCusto}
+                          onChange={(e) => atualizarItem(item.chave, { precoCusto: e.target.value })}
+                        />
+                      </div>
+                    </div>
                   </div>
                 ))}
               </div>
+
+              <Button type="button" variant="secondary" className="w-full mt-3" onClick={adicionarItem}>
+                + Adicionar outra camisa nessa leva
+              </Button>
+              <p className="text-xs text-gray-500 mt-2">
+                Se o modelo + tamanho já existir, a quantidade soma no estoque em vez de duplicar. Foto dá pra
+                adicionar depois, editando cada camisa.
+              </p>
             </>
-          )}
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label htmlFor="preco_venda">Preço de venda (R$)</Label>
-              <Input
-                id="preco_venda"
-                type="number"
-                min={0}
-                step={0.01}
-                required
-                value={form.preco_venda}
-                onChange={(e) => setForm((f) => ({ ...f, preco_venda: e.target.value }))}
-              />
-            </div>
-            <div>
-              <Label htmlFor="preco_custo">Preço de custo (R$)</Label>
-              <Input
-                id="preco_custo"
-                type="number"
-                min={0}
-                step={0.01}
-                required
-                value={form.preco_custo}
-                onChange={(e) => setForm((f) => ({ ...f, preco_custo: e.target.value }))}
-              />
-            </div>
-          </div>
-
-          <Label htmlFor="foto">Foto (opcional)</Label>
-          <input
-            id="foto"
-            type="file"
-            accept="image/*"
-            ref={fileRef}
-            onChange={handleFoto}
-            disabled={enviandoFoto}
-            className="block w-full text-sm text-gray-600 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-brand-50 file:text-brand-600 file:font-semibold"
-          />
-          {enviandoFoto && (
-            <p className="text-sm text-gray-500 mt-2 flex items-center gap-2">
-              <Spinner className="h-4 w-4 border-2" /> Enviando foto...
-            </p>
-          )}
-          {form.foto_url && !enviandoFoto && (
-            <img src={form.foto_url} alt="Prévia" className="mt-2 max-h-40 rounded-lg border border-gray-200" />
           )}
 
           <div className="flex gap-2 mt-4">
             <Button type="submit" disabled={salvando || enviandoFoto} className="flex-1">
-              {salvando ? 'Salvando...' : editandoId ? 'Salvar alterações' : 'Salvar camisa'}
+              {salvando
+                ? 'Salvando...'
+                : editandoId
+                  ? 'Salvar alterações'
+                  : itens.length > 1
+                    ? `Salvar ${itens.length} camisas`
+                    : 'Salvar camisa'}
             </Button>
             {editandoId && (
               <Button type="button" variant="secondary" onClick={cancelar}>

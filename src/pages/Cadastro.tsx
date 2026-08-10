@@ -49,6 +49,9 @@ export default function Cadastro() {
   const [itens, setItens] = useState<ItemCadastro[]>([itemVazio()]);
   const [tamanhosExtras, setTamanhosExtras] = useState<ItemCadastro[]>([]);
   const [viagemId, setViagemId] = useState('');
+  const [selecionadas, setSelecionadas] = useState<Set<string>>(new Set());
+  const [viagemLote, setViagemLote] = useState('');
+  const [aplicandoLote, setAplicandoLote] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [enviandoFoto, setEnviandoFoto] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -56,6 +59,39 @@ export default function Cadastro() {
   const fotoSalvaRef = useRef<string>('');
 
   const modelosExistentes = [...new Set(camisas.map((c) => c.modelo))].sort();
+  const nomeViagem = new Map(viagens.map((v) => [v.id, v.descricao]));
+
+  function alternarSelecao(id: string) {
+    setSelecionadas((atual) => {
+      const nova = new Set(atual);
+      if (nova.has(id)) nova.delete(id);
+      else nova.add(id);
+      return nova;
+    });
+  }
+
+  function limparSelecao() {
+    setSelecionadas(new Set());
+    setViagemLote('');
+  }
+
+  async function aplicarViagemEmLote() {
+    setAplicandoLote(true);
+    const { error } = await supabase
+      .from('camisas')
+      .update({ viagem_id: viagemLote || null })
+      .in('id', [...selecionadas]);
+    setAplicandoLote(false);
+
+    if (error) {
+      mostrar(error.message, 'erro');
+      return;
+    }
+
+    mostrar(`${selecionadas.size} camisa(s) atualizadas!`, 'sucesso');
+    limparSelecao();
+    recarregar();
+  }
 
   function editar(c: Camisa) {
     setEditandoId(c.id);
@@ -594,7 +630,32 @@ export default function Cadastro() {
         </form>
       </Card>
 
-      <h3 className="text-sm font-semibold text-gray-500 mt-5 mb-2">Camisas cadastradas</h3>
+      <div className="flex items-center justify-between mt-5 mb-2">
+        <h3 className="text-sm font-semibold text-gray-500">Camisas cadastradas</h3>
+        {selecionadas.size > 0 && (
+          <button type="button" onClick={limparSelecao} className="text-xs text-brand-600 underline">
+            Cancelar seleção ({selecionadas.size})
+          </button>
+        )}
+      </div>
+
+      {selecionadas.size > 0 && (
+        <Card className="mb-3">
+          <Label htmlFor="viagem-lote">Marcar {selecionadas.size} camisa(s) selecionada(s) como da viagem</Label>
+          <Select id="viagem-lote" value={viagemLote} onChange={(e) => setViagemLote(e.target.value)}>
+            <option value="">Nenhuma / avulso</option>
+            {viagens.map((v) => (
+              <option key={v.id} value={v.id}>
+                {v.descricao}
+              </option>
+            ))}
+          </Select>
+          <Button className="w-full mt-3" disabled={aplicandoLote} onClick={aplicarViagemEmLote}>
+            {aplicandoLote ? 'Aplicando...' : 'Aplicar'}
+          </Button>
+        </Card>
+      )}
+
       {loading ? (
         <div className="flex justify-center py-6">
           <Spinner />
@@ -605,6 +666,13 @@ export default function Cadastro() {
         <div className="flex flex-col gap-2.5">
           {camisas.map((c) => (
             <div key={c.id} className="flex items-center gap-2.5 bg-white border border-gray-200 rounded-xl p-3">
+              <input
+                type="checkbox"
+                checked={selecionadas.has(c.id)}
+                onChange={() => alternarSelecao(c.id)}
+                className="w-4 h-4 flex-shrink-0"
+                aria-label={`Selecionar ${c.modelo} - ${c.tamanho}`}
+              />
               {c.foto_url && (
                 <img
                   src={c.foto_url}
@@ -621,6 +689,9 @@ export default function Cadastro() {
                 </div>
                 <div className="text-xs text-gray-500 mt-0.5">
                   Estoque: {c.estoque} · Venda: {formatBRL(c.preco_venda)} · Custo: {formatBRL(c.preco_custo)}
+                </div>
+                <div className="text-xs text-gray-500 mt-0.5">
+                  Viagem: {c.viagem_id ? (nomeViagem.get(c.viagem_id) ?? 'Viagem removida') : 'Sem viagem'}
                 </div>
               </div>
               <div className="flex gap-1.5 flex-shrink-0">

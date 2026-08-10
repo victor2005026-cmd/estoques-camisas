@@ -2,6 +2,7 @@ import type { ChangeEvent, FormEvent } from 'react';
 import { useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useCamisas } from '../hooks/useCamisas';
+import { useViagens } from '../hooks/useViagens';
 import { useToast } from '../context/ToastContext';
 import { comprimirImagem } from '../lib/imagem';
 import { BUCKET_FOTOS, removerFotoAntiga } from '../lib/storage';
@@ -41,11 +42,13 @@ function itemVazio(): ItemCadastro {
 
 export default function Cadastro() {
   const { camisas, loading, recarregar } = useCamisas();
+  const { viagens } = useViagens();
   const { mostrar } = useToast();
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [form, setForm] = useState(FORM_VAZIO);
   const [itens, setItens] = useState<ItemCadastro[]>([itemVazio()]);
   const [tamanhosExtras, setTamanhosExtras] = useState<ItemCadastro[]>([]);
+  const [viagemId, setViagemId] = useState('');
   const [salvando, setSalvando] = useState(false);
   const [enviandoFoto, setEnviandoFoto] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -66,6 +69,7 @@ export default function Cadastro() {
       foto_url: c.foto_url ?? '',
     });
     setTamanhosExtras([]);
+    setViagemId(c.viagem_id ?? '');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
@@ -74,6 +78,7 @@ export default function Cadastro() {
     setForm(FORM_VAZIO);
     setItens([itemVazio()]);
     setTamanhosExtras([]);
+    setViagemId('');
     fotoSalvaRef.current = '';
     if (fileRef.current) fileRef.current.value = '';
   }
@@ -121,6 +126,7 @@ export default function Cadastro() {
     qtd: number,
     precoVenda: number,
     precoCusto: number,
+    viagemIdSelecionada: string,
     listaAtual: Camisa[]
   ) {
     const existente = listaAtual.find(
@@ -128,6 +134,7 @@ export default function Cadastro() {
     );
 
     if (existente) {
+      // Camisa já existe: só soma a quantidade nova, sem mexer na viagem já registrada nela.
       const { error } = await supabase
         .from('camisas')
         .update({ estoque: existente.estoque + qtd })
@@ -141,6 +148,7 @@ export default function Cadastro() {
       estoque: qtd,
       preco_venda: precoVenda,
       preco_custo: precoCusto,
+      viagem_id: viagemIdSelecionada || null,
     });
     return error;
   }
@@ -153,6 +161,7 @@ export default function Cadastro() {
       preco_venda: Number(form.preco_venda),
       preco_custo: Number(form.preco_custo),
       foto_url: form.foto_url || null,
+      viagem_id: viagemId || null,
     };
 
     const { error } = await supabase.from('camisas').update(payload).eq('id', editandoId!);
@@ -174,6 +183,7 @@ export default function Cadastro() {
         Number(it.estoque) || 0,
         Number(it.precoVenda) || 0,
         Number(it.precoCusto) || 0,
+        viagemId,
         camisas
       );
       if (erro) {
@@ -202,6 +212,7 @@ export default function Cadastro() {
         Number(it.estoque) || 0,
         Number(it.precoVenda) || 0,
         Number(it.precoCusto) || 0,
+        viagemId,
         camisas
       );
       if (erro) {
@@ -283,6 +294,19 @@ export default function Cadastro() {
       <Card>
         <h2 className="font-bold mb-3">{editandoId ? 'Editando camisa' : 'Nova camisa'}</h2>
         <form onSubmit={handleSubmit}>
+          <Label htmlFor="viagem">Viagem (opcional)</Label>
+          <Select id="viagem" value={viagemId} onChange={(e) => setViagemId(e.target.value)}>
+            <option value="">Nenhuma / avulso</option>
+            {viagens.map((v) => (
+              <option key={v.id} value={v.id}>
+                {v.descricao}
+              </option>
+            ))}
+          </Select>
+          <p className="text-xs text-gray-500 mb-1">
+            Marca em qual viagem essa(s) camisa(s) foi(ram) comprada(s), pra aparecer no financeiro por viagem.
+          </p>
+
           {editandoId ? (
             <>
               <Label htmlFor="modelo">Modelo</Label>

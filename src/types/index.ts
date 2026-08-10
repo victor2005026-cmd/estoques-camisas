@@ -10,6 +10,7 @@ export interface Camisa {
   preco_venda: number;
   preco_custo: number;
   foto_url: string | null;
+  viagem_id: string | null;
   created_at: string;
 }
 

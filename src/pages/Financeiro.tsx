@@ -2,11 +2,13 @@ import type { FormEvent } from 'react';
 import { useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useVendas } from '../hooks/useVendas';
+import { useCamisas } from '../hooks/useCamisas';
 import { useGastos } from '../hooks/useGastos';
 import { useViagens } from '../hooks/useViagens';
 import { useConfiguracoes } from '../hooks/useConfiguracoes';
 import { useToast } from '../context/ToastContext';
 import { Button, Card, EmptyState, Input, Label, Spinner, formatBRL, formatDateBR, todayISO } from '../components/ui';
+import type { Camisa, Venda, Viagem } from '../types';
 
 type StatTone = 'azul' | 'verde' | 'vermelho';
 
@@ -26,6 +28,7 @@ function Stat({ label, value, tone = 'azul' }: { label: string; value: string; t
 
 export default function Financeiro() {
   const { vendas, loading: carregandoVendas } = useVendas();
+  const { camisas, loading: carregandoCamisas } = useCamisas();
   const { gastos, loading: carregandoGastos, recarregar: recarregarGastos } = useGastos();
   const { viagens, loading: carregandoViagens, recarregar: recarregarViagens } = useViagens();
   const { totalInvestido, loading: carregandoConfig, atualizarTotalInvestido } = useConfiguracoes();
@@ -69,7 +72,7 @@ export default function Financeiro() {
     setEditandoInvestido(false);
   }
 
-  if (carregandoVendas || carregandoGastos || carregandoViagens || carregandoConfig) {
+  if (carregandoVendas || carregandoCamisas || carregandoGastos || carregandoViagens || carregandoConfig) {
     return (
       <div className="flex justify-center py-10">
         <Spinner />
@@ -129,7 +132,7 @@ export default function Financeiro() {
 
       <RegistrarGasto gastos={gastos} recarregar={recarregarGastos} />
       <div className="mt-6">
-        <Viagens viagens={viagens} recarregar={recarregarViagens} />
+        <Viagens viagens={viagens} camisas={camisas} vendas={vendas} recarregar={recarregarViagens} />
       </div>
     </div>
   );
@@ -253,11 +256,42 @@ function RegistrarGasto({
   );
 }
 
+/** Calcula os indicadores financeiros de uma viagem específica, a partir das camisas marcadas com essa viagem. */
+function calcularResumoViagem(viagem: Viagem, camisas: Camisa[], vendas: Venda[]) {
+  const camisasDaViagem = camisas.filter((c) => c.viagem_id === viagem.id);
+  const idsCamisas = new Set(camisasDaViagem.map((c) => c.id));
+  const vendasDaViagem = vendas.filter((v) => idsCamisas.has(v.camisa_id));
+
+  const custoCamisas = camisasDaViagem.reduce((soma, c) => {
+    const qtdVendida = vendasDaViagem
+      .filter((v) => v.camisa_id === c.id)
+      .reduce((s, v) => s + v.quantidade, 0);
+    return soma + Number(c.preco_custo) * (c.estoque + qtdVendida);
+  }, 0);
+
+  const totalInvestido = Number(viagem.valor_total) + custoCamisas;
+  const totalVendido = vendasDaViagem.reduce((s, v) => s + Number(v.valor_recebido), 0);
+  const totalQuantidade = vendasDaViagem.reduce((s, v) => s + v.quantidade, 0);
+  const lucroBruto = vendasDaViagem.reduce((s, v) => {
+    const camisa = camisasDaViagem.find((c) => c.id === v.camisa_id);
+    const custo = Number(camisa?.preco_custo ?? 0);
+    return s + (Number(v.valor_recebido) - custo * v.quantidade);
+  }, 0);
+  const lucroLiquido = lucroBruto - Number(viagem.valor_total);
+  const margem = totalVendido - totalInvestido;
+
+  return { totalInvestido, totalVendido, lucroBruto, lucroLiquido, totalQuantidade, margem };
+}
+
 function Viagens({
   viagens,
+  camisas,
+  vendas,
   recarregar,
 }: {
   viagens: ReturnType<typeof useViagens>['viagens'];
+  camisas: Camisa[];
+  vendas: Venda[];
   recarregar: () => void;
 }) {
   const { mostrar } = useToast();
@@ -344,24 +378,46 @@ function Viagens({
       </Card>
 
       {viagens.length > 0 ? (
-        <div className="flex flex-col gap-2.5 mt-3">
-          {viagens.map((v) => (
-            <div
-              key={v.id}
-              className="flex justify-between items-center bg-white border border-gray-200 rounded-xl p-3 gap-2"
-            >
-              <div className="min-w-0">
-                <div className="font-bold truncate">{v.descricao}</div>
-                <div className="text-xs text-gray-500 mt-0.5">{formatDateBR(v.data)}</div>
-              </div>
-              <div className="flex items-center gap-2 flex-shrink-0">
-                <div className="font-bold text-red-600">-{formatBRL(v.valor_total)}</div>
-                <Button variant="danger" className="!px-2.5 !py-1.5 text-xs" onClick={() => excluir(v.id)}>
-                  Excluir
-                </Button>
-              </div>
-            </div>
-          ))}
+        <div className="flex flex-col gap-3 mt-3">
+          {viagens.map((v) => {
+            const resumo = calcularResumoViagem(v, camisas, vendas);
+            return (
+              <Card key={v.id}>
+                <div className="flex justify-between items-start gap-2">
+                  <div className="min-w-0">
+                    <div className="font-bold truncate">{v.descricao}</div>
+                    <div className="text-xs text-gray-500 mt-0.5">
+                      {formatDateBR(v.data)} · Gasto da viagem: {formatBRL(v.valor_total)}
+                    </div>
+                  </div>
+                  <Button
+                    variant="danger"
+                    className="!px-2.5 !py-1.5 text-xs flex-shrink-0"
+                    onClick={() => excluir(v.id)}
+                  >
+                    Excluir
+                  </Button>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 mt-3">
+                  <Stat label="Investido" value={formatBRL(resumo.totalInvestido)} />
+                  <Stat label="Vendido" value={formatBRL(resumo.totalVendido)} />
+                  <Stat label="Lucro bruto" value={formatBRL(resumo.lucroBruto)} tone="verde" />
+                  <Stat
+                    label="Lucro líquido"
+                    value={formatBRL(resumo.lucroLiquido)}
+                    tone={resumo.lucroLiquido >= 0 ? 'verde' : 'vermelho'}
+                  />
+                  <Stat label="Camisas vendidas" value={String(resumo.totalQuantidade)} />
+                  <Stat
+                    label="Margem"
+                    value={formatBRL(resumo.margem)}
+                    tone={resumo.margem >= 0 ? 'verde' : 'vermelho'}
+                  />
+                </div>
+              </Card>
+            );
+          })}
         </div>
       ) : (
         <div className="mt-3">

@@ -2,26 +2,25 @@ import { useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useVendas } from '../hooks/useVendas';
 import { useGastos } from '../hooks/useGastos';
+import { useConfiguracoes } from '../hooks/useConfiguracoes';
 import { useToast } from '../context/ToastContext';
 import { Badge, Button, Card, EmptyState, Input, Label, Select, Spinner, formatBRL, formatDateBR } from '../components/ui';
 import type { StatusPagamento, Venda } from '../types';
 
 const STATUS: StatusPagamento[] = ['Pago', 'Pendente', 'Parcelado'];
 
-// Total gasto comprando o estoque inicial de camisas — valor real informado,
-// já que o custo exato de cada modelo individual não é conhecido com precisão.
-// Se comprar mais estoque no futuro, atualize esse número.
-const TOTAL_INVESTIDO_INICIAL = 1820;
-
 export default function Relatorios() {
   const { vendas, loading, recarregar } = useVendas();
   const { gastos, loading: carregandoGastos } = useGastos();
+  const { totalInvestido, loading: carregandoConfig, atualizarTotalInvestido } = useConfiguracoes();
   const { mostrar } = useToast();
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [valorEdit, setValorEdit] = useState('');
   const [valorTotalEdit, setValorTotalEdit] = useState('');
   const [dataPrevistaEdit, setDataPrevistaEdit] = useState('');
   const [statusEdit, setStatusEdit] = useState<StatusPagamento>('Pago');
+  const [editandoInvestido, setEditandoInvestido] = useState(false);
+  const [totalInvestidoEdit, setTotalInvestidoEdit] = useState('');
 
   const relatorio = useMemo(() => {
     let totalVendido = 0;
@@ -45,7 +44,7 @@ export default function Relatorios() {
 
     const totalGastos = gastos.reduce((soma, g) => soma + Number(g.valor), 0);
     const lucroLiquido = lucroBruto - totalGastos;
-    const margem = totalVendido - TOTAL_INVESTIDO_INICIAL - totalGastos;
+    const margem = totalVendido - totalInvestido - totalGastos;
 
     return {
       totalVendido,
@@ -57,7 +56,22 @@ export default function Relatorios() {
       numeroVendas: vendas.length,
       margem,
     };
-  }, [vendas, gastos]);
+  }, [vendas, gastos, totalInvestido]);
+
+  function abrirEdicaoInvestido() {
+    setTotalInvestidoEdit(String(totalInvestido));
+    setEditandoInvestido(true);
+  }
+
+  async function salvarTotalInvestido() {
+    const { error } = await atualizarTotalInvestido(Number(totalInvestidoEdit) || 0);
+    if (error) {
+      mostrar(error.message, 'erro');
+      return;
+    }
+    mostrar('Total investido atualizado!', 'sucesso');
+    setEditandoInvestido(false);
+  }
 
   function iniciarEdicao(v: Venda) {
     setEditandoId(v.id);
@@ -117,7 +131,7 @@ export default function Relatorios() {
     recarregar();
   }
 
-  if (loading || carregandoGastos) {
+  if (loading || carregandoGastos || carregandoConfig) {
     return (
       <div className="flex justify-center py-10">
         <Spinner />
@@ -138,13 +152,42 @@ export default function Relatorios() {
           value={formatBRL(relatorio.lucroLiquido)}
           tone={relatorio.lucroLiquido >= 0 ? 'verde' : 'vermelho'}
         />
-        <Stat label="Total investido em camisas" value={formatBRL(TOTAL_INVESTIDO_INICIAL)} />
+        <Stat label="Total investido em camisas" value={formatBRL(totalInvestido)} />
         <Stat
           label={relatorio.margem >= 0 ? 'Margem (já positivo!)' : 'Margem (ainda no negativo)'}
           value={formatBRL(relatorio.margem)}
           tone={relatorio.margem >= 0 ? 'verde' : 'vermelho'}
         />
       </div>
+
+      {editandoInvestido ? (
+        <Card className="mb-3">
+          <Label htmlFor="total-investido-edit">Total investido em camisas (R$)</Label>
+          <Input
+            id="total-investido-edit"
+            type="number"
+            min={0}
+            step={0.01}
+            value={totalInvestidoEdit}
+            onChange={(e) => setTotalInvestidoEdit(e.target.value)}
+          />
+          <p className="text-xs text-gray-500 mt-1">
+            Some aqui o que gastarem comprando mais camisas, pra Margem continuar batendo certo.
+          </p>
+          <div className="flex gap-2 mt-3">
+            <Button className="flex-1 !py-1.5 !text-xs" onClick={salvarTotalInvestido}>
+              Salvar
+            </Button>
+            <Button variant="secondary" className="flex-1 !py-1.5 !text-xs" onClick={() => setEditandoInvestido(false)}>
+              Cancelar
+            </Button>
+          </div>
+        </Card>
+      ) : (
+        <button type="button" onClick={abrirEdicaoInvestido} className="text-xs text-brand-600 underline mb-3 block">
+          Editar total investido em camisas
+        </button>
+      )}
 
       <h3 className="text-sm font-semibold text-gray-500 mb-2">Pagamentos pendentes / parcelados</h3>
       {relatorio.pendencias.length === 0 ? (

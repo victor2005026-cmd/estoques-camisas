@@ -1,8 +1,6 @@
 import { useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useVendas } from '../hooks/useVendas';
-import { useGastos } from '../hooks/useGastos';
-import { useConfiguracoes } from '../hooks/useConfiguracoes';
 import { useToast } from '../context/ToastContext';
 import { Badge, Button, Card, EmptyState, Input, Label, Select, Spinner, formatBRL, formatDateBR } from '../components/ui';
 import type { StatusPagamento, Venda } from '../types';
@@ -11,67 +9,24 @@ const STATUS: StatusPagamento[] = ['Pago', 'Pendente', 'Parcelado'];
 
 export default function Relatorios() {
   const { vendas, loading, recarregar } = useVendas();
-  const { gastos, loading: carregandoGastos } = useGastos();
-  const { totalInvestido, loading: carregandoConfig, atualizarTotalInvestido } = useConfiguracoes();
   const { mostrar } = useToast();
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [valorEdit, setValorEdit] = useState('');
   const [valorTotalEdit, setValorTotalEdit] = useState('');
   const [dataPrevistaEdit, setDataPrevistaEdit] = useState('');
   const [statusEdit, setStatusEdit] = useState<StatusPagamento>('Pago');
-  const [editandoInvestido, setEditandoInvestido] = useState(false);
-  const [totalInvestidoEdit, setTotalInvestidoEdit] = useState('');
 
-  const relatorio = useMemo(() => {
-    let totalVendido = 0;
-    let totalQuantidade = 0;
-    let lucroBruto = 0;
-    const pendencias: Array<{ venda: Venda; falta: number }> = [];
-
+  const pendencias = useMemo(() => {
+    const lista: Array<{ venda: Venda; falta: number }> = [];
     for (const v of vendas) {
-      const custo = Number(v.camisa?.preco_custo ?? 0);
-      totalVendido += Number(v.valor_recebido);
-      totalQuantidade += v.quantidade;
-      lucroBruto += Number(v.valor_recebido) - custo * v.quantidade;
-
       if (v.status_pagamento === 'Pendente' || v.status_pagamento === 'Parcelado') {
         const falta = Math.max(Number(v.valor_total) - Number(v.valor_recebido), 0);
-        pendencias.push({ venda: v, falta });
+        lista.push({ venda: v, falta });
       }
     }
-
-    pendencias.sort((a, b) => a.venda.data.localeCompare(b.venda.data));
-
-    const totalGastos = gastos.reduce((soma, g) => soma + Number(g.valor), 0);
-    const lucroLiquido = lucroBruto - totalGastos;
-    const margem = totalVendido - totalInvestido - totalGastos;
-
-    return {
-      totalVendido,
-      totalQuantidade,
-      lucroBruto,
-      totalGastos,
-      lucroLiquido,
-      pendencias,
-      numeroVendas: vendas.length,
-      margem,
-    };
-  }, [vendas, gastos, totalInvestido]);
-
-  function abrirEdicaoInvestido() {
-    setTotalInvestidoEdit(String(totalInvestido));
-    setEditandoInvestido(true);
-  }
-
-  async function salvarTotalInvestido() {
-    const { error } = await atualizarTotalInvestido(Number(totalInvestidoEdit) || 0);
-    if (error) {
-      mostrar(error.message, 'erro');
-      return;
-    }
-    mostrar('Total investido atualizado!', 'sucesso');
-    setEditandoInvestido(false);
-  }
+    lista.sort((a, b) => a.venda.data.localeCompare(b.venda.data));
+    return lista;
+  }, [vendas]);
 
   function iniciarEdicao(v: Venda) {
     setEditandoId(v.id);
@@ -131,7 +86,7 @@ export default function Relatorios() {
     recarregar();
   }
 
-  if (loading || carregandoGastos || carregandoConfig) {
+  if (loading) {
     return (
       <div className="flex justify-center py-10">
         <Spinner />
@@ -141,60 +96,12 @@ export default function Relatorios() {
 
   return (
     <div>
-      <div className="grid grid-cols-2 gap-2.5 my-3">
-        <Stat label="Total vendido" value={formatBRL(relatorio.totalVendido)} />
-        <Stat label="Camisas vendidas" value={String(relatorio.totalQuantidade)} />
-        <Stat label="Lucro bruto" value={formatBRL(relatorio.lucroBruto)} tone="verde" />
-        <Stat label="Vendas registradas" value={String(relatorio.numeroVendas)} />
-        <Stat label="Total de gastos" value={formatBRL(relatorio.totalGastos)} tone="vermelho" />
-        <Stat
-          label="Lucro líquido"
-          value={formatBRL(relatorio.lucroLiquido)}
-          tone={relatorio.lucroLiquido >= 0 ? 'verde' : 'vermelho'}
-        />
-        <Stat label="Total investido em camisas" value={formatBRL(totalInvestido)} />
-        <Stat
-          label={relatorio.margem >= 0 ? 'Margem (já positivo!)' : 'Margem (ainda no negativo)'}
-          value={formatBRL(relatorio.margem)}
-          tone={relatorio.margem >= 0 ? 'verde' : 'vermelho'}
-        />
-      </div>
-
-      {editandoInvestido ? (
-        <Card className="mb-3">
-          <Label htmlFor="total-investido-edit">Total investido em camisas (R$)</Label>
-          <Input
-            id="total-investido-edit"
-            type="number"
-            min={0}
-            step={0.01}
-            value={totalInvestidoEdit}
-            onChange={(e) => setTotalInvestidoEdit(e.target.value)}
-          />
-          <p className="text-xs text-gray-500 mt-1">
-            Some aqui o que gastarem comprando mais camisas, pra Margem continuar batendo certo.
-          </p>
-          <div className="flex gap-2 mt-3">
-            <Button className="flex-1 !py-1.5 !text-xs" onClick={salvarTotalInvestido}>
-              Salvar
-            </Button>
-            <Button variant="secondary" className="flex-1 !py-1.5 !text-xs" onClick={() => setEditandoInvestido(false)}>
-              Cancelar
-            </Button>
-          </div>
-        </Card>
-      ) : (
-        <button type="button" onClick={abrirEdicaoInvestido} className="text-xs text-brand-600 underline mb-3 block">
-          Editar total investido em camisas
-        </button>
-      )}
-
       <h3 className="text-sm font-semibold text-gray-500 mb-2">Pagamentos pendentes / parcelados</h3>
-      {relatorio.pendencias.length === 0 ? (
+      {pendencias.length === 0 ? (
         <EmptyState>Nenhuma pendência de pagamento.</EmptyState>
       ) : (
         <div className="flex flex-col gap-2.5 mb-5">
-          {relatorio.pendencias.map(({ venda: v, falta }) => (
+          {pendencias.map(({ venda: v, falta }) => (
             <Card key={v.id}>
               <div className="font-bold flex items-center gap-2">
                 {v.cliente}{' '}
@@ -330,22 +237,6 @@ export default function Relatorios() {
           )}
         </div>
       )}
-    </div>
-  );
-}
-
-type StatTone = 'azul' | 'verde' | 'vermelho';
-
-function Stat({ label, value, tone = 'azul' }: { label: string; value: string; tone?: StatTone }) {
-  const cores: Record<StatTone, string> = {
-    azul: 'text-brand-500',
-    verde: 'text-green-600',
-    vermelho: 'text-red-600',
-  };
-  return (
-    <div className="bg-white border border-gray-200 rounded-xl p-3.5 text-center">
-      <div className={`text-lg font-extrabold ${cores[tone]}`}>{value}</div>
-      <div className="text-xs text-gray-500 mt-0.5">{label}</div>
     </div>
   );
 }

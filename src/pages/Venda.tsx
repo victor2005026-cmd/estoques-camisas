@@ -2,9 +2,8 @@ import type { FormEvent } from 'react';
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useCamisas } from '../hooks/useCamisas';
-import { useGastos } from '../hooks/useGastos';
 import { useToast } from '../context/ToastContext';
-import { Button, Card, EmptyState, Input, Label, Select, TextArea, formatBRL, formatDateBR, todayISO } from '../components/ui';
+import { Button, Card, Input, Label, Select, TextArea, formatBRL, todayISO } from '../components/ui';
 import type { Camisa, FormaPagamento, StatusPagamento } from '../types';
 
 const FORMAS: FormaPagamento[] = ['Pix', 'Dinheiro', 'Cartão'];
@@ -163,281 +162,162 @@ export default function Venda() {
   }
 
   return (
-    <div className="flex flex-col gap-5">
-      <Card>
-        <h2 className="font-bold mb-3">Registrar venda</h2>
-        <form onSubmit={handleSubmit}>
-          <Label htmlFor="cliente">Cliente</Label>
-          <Input
-            id="cliente"
-            required
-            value={cliente}
-            onChange={(e) => setCliente(e.target.value)}
-            placeholder="Nome do cliente"
-          />
+    <Card>
+      <h2 className="font-bold mb-3">Registrar venda</h2>
+      <form onSubmit={handleSubmit}>
+        <Label htmlFor="cliente">Cliente</Label>
+        <Input
+          id="cliente"
+          required
+          value={cliente}
+          onChange={(e) => setCliente(e.target.value)}
+          placeholder="Nome do cliente"
+        />
 
-          <div className="flex flex-col gap-4 mt-4">
-            {itens.map((item, idx) => {
-              const camisaSelecionada = camisas.find((c) => c.id === item.camisaId);
-              return (
-                <div key={item.chave} className="border border-gray-200 rounded-lg p-3">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs font-semibold text-gray-500">Camisa {idx + 1}</span>
-                    {itens.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => removerItem(item.chave)}
-                        className="text-xs text-red-600 font-semibold"
-                      >
-                        Remover
-                      </button>
-                    )}
-                  </div>
-
-                  <Label htmlFor={`camisa-busca-${item.chave}`}>Camisa</Label>
-                  <Input
-                    id={`camisa-busca-${item.chave}`}
-                    list={`camisas-sugestoes-${item.chave}`}
-                    required
-                    value={item.busca}
-                    onChange={(e) => selecionarCamisaPorTexto(item.chave, e.target.value)}
-                    placeholder="Digite pra buscar..."
-                  />
-                  <datalist id={`camisas-sugestoes-${item.chave}`}>
-                    {camisas.map((c) => (
-                      <option key={c.id} value={rotuloCamisa(c)} />
-                    ))}
-                  </datalist>
-                  {camisaSelecionada && (
-                    <p
-                      className={`text-xs mt-1 ${
-                        camisaSelecionada.estoque <= 0 ? 'text-red-600 font-semibold' : 'text-gray-500'
-                      }`}
+        <div className="flex flex-col gap-4 mt-4">
+          {itens.map((item, idx) => {
+            const camisaSelecionada = camisas.find((c) => c.id === item.camisaId);
+            return (
+              <div key={item.chave} className="border border-gray-200 rounded-lg p-3">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-semibold text-gray-500">Camisa {idx + 1}</span>
+                  {itens.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removerItem(item.chave)}
+                      className="text-xs text-red-600 font-semibold"
                     >
-                      Disponível: {camisaSelecionada.estoque} un. · Preço de venda:{' '}
-                      {formatBRL(camisaSelecionada.preco_venda)}
-                    </p>
-                  )}
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <Label htmlFor={`quantidade-${item.chave}`}>Quantidade</Label>
-                      <Input
-                        id={`quantidade-${item.chave}`}
-                        type="number"
-                        min={1}
-                        step={1}
-                        required
-                        value={item.quantidade}
-                        onChange={(e) => atualizarItem(item.chave, { quantidade: e.target.value })}
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor={`valor-${item.chave}`}>Valor recebido (R$)</Label>
-                      <Input
-                        id={`valor-${item.chave}`}
-                        type="number"
-                        min={0}
-                        step={0.01}
-                        required
-                        value={item.valor}
-                        onChange={(e) => atualizarItem(item.chave, { valor: e.target.value, valorEditado: true })}
-                      />
-                    </div>
-                  </div>
-
-                  {naoPago && (
-                    <>
-                      <Label htmlFor={`valor-total-${item.chave}`}>Valor total combinado (R$)</Label>
-                      <Input
-                        id={`valor-total-${item.chave}`}
-                        type="number"
-                        min={0}
-                        step={0.01}
-                        required
-                        value={item.valorTotal}
-                        onChange={(e) =>
-                          atualizarItem(item.chave, { valorTotal: e.target.value, valorTotalEditado: true })
-                        }
-                      />
-                    </>
+                      Remover
+                    </button>
                   )}
                 </div>
-              );
-            })}
-          </div>
 
-          <Button type="button" variant="secondary" className="w-full mt-3" onClick={adicionarItem}>
-            + Adicionar outra camisa nessa venda
-          </Button>
+                <Label htmlFor={`camisa-busca-${item.chave}`}>Camisa</Label>
+                <Input
+                  id={`camisa-busca-${item.chave}`}
+                  list={`camisas-sugestoes-${item.chave}`}
+                  required
+                  value={item.busca}
+                  onChange={(e) => selecionarCamisaPorTexto(item.chave, e.target.value)}
+                  placeholder="Digite pra buscar..."
+                />
+                <datalist id={`camisas-sugestoes-${item.chave}`}>
+                  {camisas.map((c) => (
+                    <option key={c.id} value={rotuloCamisa(c)} />
+                  ))}
+                </datalist>
+                {camisaSelecionada && (
+                  <p
+                    className={`text-xs mt-1 ${
+                      camisaSelecionada.estoque <= 0 ? 'text-red-600 font-semibold' : 'text-gray-500'
+                    }`}
+                  >
+                    Disponível: {camisaSelecionada.estoque} un. · Preço de venda:{' '}
+                    {formatBRL(camisaSelecionada.preco_venda)}
+                  </p>
+                )}
 
-          <Label htmlFor="data">Data</Label>
-          <Input id="data" type="date" required value={data} onChange={(e) => setData(e.target.value)} />
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label htmlFor={`quantidade-${item.chave}`}>Quantidade</Label>
+                    <Input
+                      id={`quantidade-${item.chave}`}
+                      type="number"
+                      min={1}
+                      step={1}
+                      required
+                      value={item.quantidade}
+                      onChange={(e) => atualizarItem(item.chave, { quantidade: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor={`valor-${item.chave}`}>Valor recebido (R$)</Label>
+                    <Input
+                      id={`valor-${item.chave}`}
+                      type="number"
+                      min={0}
+                      step={0.01}
+                      required
+                      value={item.valor}
+                      onChange={(e) => atualizarItem(item.chave, { valor: e.target.value, valorEditado: true })}
+                    />
+                  </div>
+                </div>
 
-          <Label htmlFor="forma">Forma de pagamento</Label>
-          <Select id="forma" value={forma} onChange={(e) => setForma(e.target.value as FormaPagamento)}>
-            {FORMAS.map((f) => (
-              <option key={f} value={f}>
-                {f}
-              </option>
-            ))}
-          </Select>
-
-          <Label htmlFor="status">Status do pagamento</Label>
-          <Select id="status" value={status} onChange={(e) => setStatus(e.target.value as StatusPagamento)}>
-            {STATUS.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </Select>
-
-          {naoPago && (
-            <>
-              <p className="text-xs text-gray-500 mt-1">
-                O valor combinado no total de cada item, mesmo que ainda não tenha recebido tudo. É com base nele
-                que o sistema calcula quanto falta.
-              </p>
-              <Label htmlFor="data-prevista">Data prevista de pagamento (opcional)</Label>
-              <Input
-                id="data-prevista"
-                type="date"
-                value={dataPrevista}
-                onChange={(e) => setDataPrevista(e.target.value)}
-              />
-            </>
-          )}
-
-          <Label htmlFor="obs">Observações (opcional)</Label>
-          <TextArea
-            id="obs"
-            value={obs}
-            onChange={(e) => setObs(e.target.value)}
-            placeholder="Ex: combinou de pagar o restante sexta-feira"
-          />
-
-          <Button type="submit" disabled={salvando} className="w-full mt-4">
-            {salvando ? 'Registrando...' : itens.length > 1 ? `Registrar ${itens.length} vendas` : 'Registrar venda'}
-          </Button>
-        </form>
-      </Card>
-
-      <RegistrarGasto />
-    </div>
-  );
-}
-
-function RegistrarGasto() {
-  const { gastos, loading, recarregar } = useGastos();
-  const { mostrar } = useToast();
-
-  const [descricao, setDescricao] = useState('');
-  const [valor, setValor] = useState('');
-  const [data, setData] = useState(todayISO());
-  const [salvando, setSalvando] = useState(false);
-
-  async function handleSubmit(e: FormEvent) {
-    e.preventDefault();
-    setSalvando(true);
-    const { error } = await supabase.from('gastos').insert({
-      descricao: descricao.trim(),
-      valor: Number(valor),
-      data,
-    });
-    setSalvando(false);
-
-    if (error) {
-      mostrar(error.message, 'erro');
-      return;
-    }
-
-    mostrar('Gasto registrado!', 'sucesso');
-    setDescricao('');
-    setValor('');
-    setData(todayISO());
-    recarregar();
-  }
-
-  async function excluir(id: string) {
-    if (!confirm('Excluir esse gasto?')) return;
-    const { error } = await supabase.from('gastos').delete().eq('id', id);
-    if (error) {
-      mostrar(error.message, 'erro');
-      return;
-    }
-    mostrar('Gasto excluído.', 'sucesso');
-    recarregar();
-  }
-
-  return (
-    <div>
-      <Card>
-        <h2 className="font-bold mb-1">Registrar gasto</h2>
-        <p className="text-xs text-gray-500 mb-3">
-          Despesas que não são compra de camisa — gasolina, pedágio, embalagem etc. Isso desconta do lucro líquido
-          nos Relatórios.
-        </p>
-        <form onSubmit={handleSubmit}>
-          <Label htmlFor="gasto-descricao">Descrição</Label>
-          <Input
-            id="gasto-descricao"
-            required
-            value={descricao}
-            onChange={(e) => setDescricao(e.target.value)}
-            placeholder="Ex: Gasolina indo pra SP"
-          />
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label htmlFor="gasto-valor">Valor (R$)</Label>
-              <Input
-                id="gasto-valor"
-                type="number"
-                min={0}
-                step={0.01}
-                required
-                value={valor}
-                onChange={(e) => setValor(e.target.value)}
-              />
-            </div>
-            <div>
-              <Label htmlFor="gasto-data">Data</Label>
-              <Input id="gasto-data" type="date" required value={data} onChange={(e) => setData(e.target.value)} />
-            </div>
-          </div>
-
-          <Button type="submit" disabled={salvando} className="w-full mt-4">
-            {salvando ? 'Registrando...' : 'Registrar gasto'}
-          </Button>
-        </form>
-      </Card>
-
-      {!loading && gastos.length > 0 && (
-        <div className="flex flex-col gap-2.5 mt-3">
-          {gastos.slice(0, 10).map((g) => (
-            <div
-              key={g.id}
-              className="flex justify-between items-center bg-white border border-gray-200 rounded-xl p-3 gap-2"
-            >
-              <div className="min-w-0">
-                <div className="font-bold truncate">{g.descricao}</div>
-                <div className="text-xs text-gray-500 mt-0.5">{formatDateBR(g.data)}</div>
+                {naoPago && (
+                  <>
+                    <Label htmlFor={`valor-total-${item.chave}`}>Valor total combinado (R$)</Label>
+                    <Input
+                      id={`valor-total-${item.chave}`}
+                      type="number"
+                      min={0}
+                      step={0.01}
+                      required
+                      value={item.valorTotal}
+                      onChange={(e) =>
+                        atualizarItem(item.chave, { valorTotal: e.target.value, valorTotalEditado: true })
+                      }
+                    />
+                  </>
+                )}
               </div>
-              <div className="flex items-center gap-2 flex-shrink-0">
-                <div className="font-bold text-red-600">-{formatBRL(g.valor)}</div>
-                <Button variant="danger" className="!px-2.5 !py-1.5 text-xs" onClick={() => excluir(g.id)}>
-                  Excluir
-                </Button>
-              </div>
-            </div>
+            );
+          })}
+        </div>
+
+        <Button type="button" variant="secondary" className="w-full mt-3" onClick={adicionarItem}>
+          + Adicionar outra camisa nessa venda
+        </Button>
+
+        <Label htmlFor="data">Data</Label>
+        <Input id="data" type="date" required value={data} onChange={(e) => setData(e.target.value)} />
+
+        <Label htmlFor="forma">Forma de pagamento</Label>
+        <Select id="forma" value={forma} onChange={(e) => setForma(e.target.value as FormaPagamento)}>
+          {FORMAS.map((f) => (
+            <option key={f} value={f}>
+              {f}
+            </option>
           ))}
-        </div>
-      )}
-      {!loading && gastos.length === 0 && (
-        <div className="mt-3">
-          <EmptyState>Nenhum gasto registrado ainda.</EmptyState>
-        </div>
-      )}
-    </div>
+        </Select>
+
+        <Label htmlFor="status">Status do pagamento</Label>
+        <Select id="status" value={status} onChange={(e) => setStatus(e.target.value as StatusPagamento)}>
+          {STATUS.map((s) => (
+            <option key={s} value={s}>
+              {s}
+            </option>
+          ))}
+        </Select>
+
+        {naoPago && (
+          <>
+            <p className="text-xs text-gray-500 mt-1">
+              O valor combinado no total de cada item, mesmo que ainda não tenha recebido tudo. É com base nele que
+              o sistema calcula quanto falta.
+            </p>
+            <Label htmlFor="data-prevista">Data prevista de pagamento (opcional)</Label>
+            <Input
+              id="data-prevista"
+              type="date"
+              value={dataPrevista}
+              onChange={(e) => setDataPrevista(e.target.value)}
+            />
+          </>
+        )}
+
+        <Label htmlFor="obs">Observações (opcional)</Label>
+        <TextArea
+          id="obs"
+          value={obs}
+          onChange={(e) => setObs(e.target.value)}
+          placeholder="Ex: combinou de pagar o restante sexta-feira"
+        />
+
+        <Button type="submit" disabled={salvando} className="w-full mt-4">
+          {salvando ? 'Registrando...' : itens.length > 1 ? `Registrar ${itens.length} vendas` : 'Registrar venda'}
+        </Button>
+      </form>
+    </Card>
   );
 }

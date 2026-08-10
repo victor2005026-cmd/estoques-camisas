@@ -6,6 +6,7 @@ import Venda from './pages/Venda';
 import Estoque from './pages/Estoque';
 import Cadastro from './pages/Cadastro';
 import ListaCompras from './pages/ListaCompras';
+import Financeiro from './pages/Financeiro';
 import Relatorios from './pages/Relatorios';
 import { Spinner } from './components/ui';
 
@@ -42,6 +43,7 @@ export default function App() {
         {aba === 'estoque' && <Estoque />}
         {aba === 'cadastro' && <Cadastro />}
         {aba === 'lista' && <ListaCompras />}
+        {aba === 'financeiro' && <Financeiro />}
         {aba === 'relatorios' && <Relatorios />}
       </main>
 

@@ -56,3 +56,11 @@ export interface PedidoCliente {
   atendido: boolean;
   created_at: string;
 }
+
+export interface Viagem {
+  id: string;
+  descricao: string;
+  data: string;
+  valor_total: number;
+  created_at: string;
+}

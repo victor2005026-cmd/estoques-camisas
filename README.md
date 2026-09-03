@@ -5,6 +5,11 @@ Sistema de controle de vendas de camisas para uso entre duas pessoas, com
 como banco de dados, autenticação e storage de fotos. Hospedado de graça na
 **Vercel**.
 
+<img width="1918" height="867" alt="Captura de tela 2026-09-03 103926" src="https://github.com/user-attachments/assets/71bde303-142b-447b-9e8d-6f804af14898" />
+<img width="1917" height="863" alt="Captura de tela 2026-09-03 103909" src="https://github.com/user-attachments/assets/72453a8a-9e5e-44dd-8895-93106154e286" />
+<img width="1919" height="862" alt="Captura de tela 2026-09-03 103856" src="https://github.com/user-attachments/assets/65f99347-16b0-4e1e-aadf-42250c417baa" />
+
+
 > Este projeto substitui a versão anterior em Google Apps Script (que ficou
 > lenta por causa da latência das chamadas à planilha). O código antigo em
 > Apps Script foi preservado em `_legacy-apps-script-backup/` nesta mesma
